@@ -1,5 +1,5 @@
 import numpy as np
-from utils import compute_alpha_max, solve_irmxne_problem
+from hp_selection.utils import compute_alpha_max, solve_irmxne_problem
 
 
 def compute_log_likelihood(G, M_val, X, sigma=1):

@@ -1,7 +1,8 @@
 import numpy as np
 from numpy.linalg import norm
 from sklearn.model_selection import KFold
-from utils import compute_alpha_max, solve_irmxne_problem, norm_l2_05
+from hp_selection.utils import (compute_alpha_max, solve_irmxne_problem,
+                                norm_l2_05)
 
 
 def solve_using_spatial_cv(G, M, n_orient, n_mxne_iter=5, grid_length=15, K=5,
@@ -12,7 +13,7 @@ def solve_using_spatial_cv(G, M, n_orient, n_mxne_iter=5, grid_length=15, K=5,
     """
     def objective(G, M, X, alpha):
         return norm(np.dot(G, M) - X, ord="fro") + alpha * norm_l2_05(X)
-    
+
     alpha_max = compute_alpha_max(G, M, n_orient)
 
     kf = KFold(n_splits=K, shuffle=True, random_state=random_state)
