@@ -21,7 +21,7 @@ def solve_using_spatial_cv(G, M, n_orient, n_mxne_iter=5, grid_length=15, K=5,
     grid = np.geomspace(alpha_max, alpha_max * 0.1, grid_length)
 
     for i, (trn_indices, val_indices) in enumerate(kf.split(G, M)):
-        M_train, M_val = M[:, trn_indices], M[:, val_indices]
+        M_train, M_val = M[trn_indices, :], M[val_indices, :]
 
         # Fitting on grid
         for j, alpha in enumerate(grid, total=len(grid)):
