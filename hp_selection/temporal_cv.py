@@ -16,8 +16,8 @@ def compute_log_likelihood(G, M_val, X, sigma=1):
         np.linalg.det(sigma_M_train)
     )
 
-def temporal_cv(G, M, n_orient, n_mxne_iter=5, grid_length=15, K=5,
-                random_state=0):
+def solve_using_temporal_cv(G, M, n_orient, n_mxne_iter=5, grid_length=15, K=5,
+                            random_state=0):
     """
     Solves the multi-task Lasso problem with a group l2,0.5 penalty with irMxNE.
     Regularization hyperparameter selection is done using (temporal) CV.

@@ -3,13 +3,17 @@ import joblib
 import mne
 from mne.datasets import sample
 
+from hp_selection.sure import solve_using_sure
+from hp_selection.spatial_cv import solve_using_spatial_cv
+from hp_selection.temporal_cv import solve_using_temporal_cv
+from hp_selection.utils import apply_solver
+
 
 CONDITIONS = ["Left Auditory", "Right Auditory", "Left visual",
                 "Right visual"]
-OUT_DIR = "../data/sure"
 
 
-def load_data():
+def load_data(condition):
     data_path = sample.data_path()
     fwd_fname = data_path + '/MEG/sample/sample_audvis-meg-eeg-oct-6-fwd.fif'
     ave_fname = data_path + '/MEG/sample/sample_audvis-ave.fif'
@@ -25,15 +29,31 @@ def load_data():
     return evoked, forward, noise_cov
 
 
+def save_stc(stc, condition, solver):
+    out_dir = "../data/%s/" % solver
+
+    if not os.path.exists(out_dir):
+        os.mkdir(out_dir)
+
+    fname = condition.lower().replace(" ", "_") + ".pkl"
+    out_path = os.path.join(out_dir, fname)
+
+    with open(out_path, "wb") as out_file:
+        joblib.dump(stc, out_file)
+
+
 if __name__ == "__main__":
-
-    if not os.path.exists(OUT_DIR):
-        os.mkdir(OUT_DIR)
-
     for condition in CONDITIONS:
-        raise NotImplementedError
-        # stc = solve_sure(condition)
-        # condition_fname = condition.lower().replace(" ", "_") + "_sure.pkl"
-        # out_path = os.path.join(OUT_DIR, condition_fname)
-        # with open(out_path, "wb") as out_file:
-        #     joblib.dump(stc, out_file)
+        evoked, forward, noise_cov = load_data(condition)
+
+        # SURE
+        stc = solve_using_sure()
+        save_stc(stc, condition, "sure")
+
+        # Spatial CV
+        stc = apply_solver(solve_using_spatial_cv, evoked, forward, noise_cov)
+        save_stc(stc, condition, "spatial_cv")
+
+        # Temporal CV
+        stc = apply_solver(solve_using_temporal_cv, evoked, forward, noise_cov)
+        save_stc(stc, condition, "temporal_cv")

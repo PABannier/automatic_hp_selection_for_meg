@@ -4,8 +4,8 @@ from sklearn.model_selection import KFold
 from utils import compute_alpha_max, solve_irmxne_problem, norm_l2_05
 
 
-def spatial_cv(G, M, n_orient, n_mxne_iter=5, grid_length=15, K=5,
-               random_state=0):
+def solve_using_spatial_cv(G, M, n_orient, n_mxne_iter=5, grid_length=15, K=5,
+                           random_state=0):
     """
     Solves the multi-task Lasso problem with a group l2,0.5 penalty with irMxNE.
     Regularization hyperparameter selection is done using (spatial) CV.

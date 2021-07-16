@@ -1,3 +1,4 @@
 .ipynb
 /data
 .DS_Store
+/hp_selection.egg-info
