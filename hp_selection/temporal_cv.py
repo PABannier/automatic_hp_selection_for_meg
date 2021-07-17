@@ -38,7 +38,7 @@ def solve_using_temporal_cv(G, M, n_orient, n_mxne_iter=5, grid_length=15, K=5,
         M_train, M_val = M[:, train_indices], M[:, val_indices]
 
         # Fitting on grid
-        for j, alpha in enumerate(grid, total=len(grid)):
+        for j, alpha in enumerate(grid):
             X_ = solve_irmxne_problem(G, M_train, alpha, n_orient,
                                       n_mxne_iter)[0]
             loss_ = compute_log_likelihood(G, M_val, X_, sigma=1)
