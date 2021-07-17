@@ -18,7 +18,7 @@ def norm_l2_05(X, n_orient, copy=True):
         return 0.0
     if copy:
         X = X.copy()
-    return np.sqrt(np.sqrt(groups_norm2(X, n_orient)))
+    return np.sum(np.sqrt(np.sqrt(groups_norm2(X, n_orient))))
 
 
 def norm_l2_inf(X, n_orient, copy=True):
@@ -64,12 +64,17 @@ def apply_solver(solver, evoked, forward, noise_cov, depth=0.9, loose=0.9,
     return stc
 
 
+def build_full_coefficient_matrix(active_set, n_times, coef):
+        """Building full coefficient matrix and filling active set with
+        non-zero coefficients"""
+        final_coef_ = np.zeros((len(active_set), n_times))
+        if coef is not None:
+            final_coef_[active_set] = coef
+        return final_coef_
+
+
 def solve_irmxne_problem(G, M, alpha, n_orient, n_mxne_iter=5):
-        if n_mxne_iter == 1:
-            X, active_set, _ = mixed_norm_solver(M, G, alpha, 
-                                                 n_orient=n_orient)
-        else:
-            X, active_set, _ = iterative_mixed_norm_solver(M, G, alpha, 
-                                                           n_mxne_iter, 
-                                                           n_orient=n_orient)
+        X, active_set, _ = iterative_mixed_norm_solver(M, G, alpha, 
+                                                       n_mxne_iter, 
+                                                       n_orient=n_orient)
         return X, active_set

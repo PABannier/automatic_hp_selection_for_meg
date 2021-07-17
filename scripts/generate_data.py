@@ -51,9 +51,9 @@ if __name__ == "__main__":
         # save_stc(stc, condition, "sure")
 
         # # Spatial CV
-        # stc = apply_solver(solve_using_spatial_cv, evoked, forward, noise_cov)
-        # save_stc(stc, condition, "spatial_cv")
+        stc = apply_solver(solve_using_spatial_cv, evoked, forward, noise_cov)
+        save_stc(stc, condition, "spatial_cv")
 
         # # Temporal CV
-        stc = apply_solver(solve_using_temporal_cv, evoked, forward, noise_cov)
-        save_stc(stc, condition, "temporal_cv")
+        # stc = apply_solver(solve_using_temporal_cv, evoked, forward, noise_cov)
+        # save_stc(stc, condition, "temporal_cv")
