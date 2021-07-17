@@ -18,10 +18,18 @@ def _weights(X, G, alpha, active_set, n_orient):
     return X_tilde, G_tilde, alpha_tilde
 
 
-def solve_using_gamma_map(G, M, n_orient, n_mxne_iter=5, hp_iter=9, a=1, b=1):
-    return iterative_mixed_norm_solver_hyperparam(M, G, alpha, n_mxne_iter,
+def solve_using_gamma_map(G, M, n_orient, n_mxne_iter=5, hp_iter=9, a=1, b=1/3):
+    """
+    Solves the multi-task Lasso problem with a group l2,0.5 penalty with irMxNE.
+    Regularization hyperparameter selection is done using gamma-map techinque.
+
+    Bekhti et al found in their experiments for M/EEG data that b=1/3 gives
+    satisfying results. 
+    """
+    X, as_ = iterative_mixed_norm_solver_hyperparam(M, G, alpha, n_mxne_iter,
                                                     hp_iter=hp_iter, a=a,
-                                                    b=b, n_orient=n_orient)
+                                                    b=b, n_orient=n_orient)[:1]
+    return X, as_
                                                     
 
 def iterative_mixed_norm_solver_hyperparam(M, G, alpha, n_mxne_iter, hp_iter=9,
@@ -37,7 +45,6 @@ def iterative_mixed_norm_solver_hyperparam(M, G, alpha, n_mxne_iter, hp_iter=9,
 
     def gprime(w):
         return 2. * np.repeat(g(w), n_orient).ravel()
-    # 1/0
     k = 1 if n_mxne_iter == 1 else 0.5
 
     # Compute the parameter a of the Gamma distribution
@@ -111,20 +118,15 @@ def iterative_mixed_norm_solver_hyperparam(M, G, alpha, n_mxne_iter, hp_iter=9,
         # alpha_max *= 0.01
         # alpha_max = 1.
 
-        # 1/0
-
         if np.shape(alpha):
             scale = np.shape(X)[1]
             # gX = np.ones((active_set.shape)) * np.sum(g(X))
             gX = (g(X) if (n_orient == 1) else
                   np.tile(g(X), [n_orient, 1]).ravel(order='F'))
             alpha[active_set] = (scale / k + a) / (gX + b)
-            # alpha = (64. / k + a) / (gX + b)
-            # 1/0
         else:
             scale = np.shape(X)[0] * np.shape(X)[1]
             alpha = (scale / k + a) / (np.sum(g(X)) + np.shape(X)[1])
-            # 1/0
             print('alpha: %s' % alpha)
         alphas.append(alpha)
 
