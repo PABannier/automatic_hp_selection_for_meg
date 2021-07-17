@@ -42,7 +42,7 @@ def solve_using_temporal_cv(G, M, n_orient, n_mxne_iter=5, grid_length=15, K=5,
         for j, alpha in enumerate(grid):
             X_, as_ = solve_irmxne_problem(G, M_train, alpha, n_orient,
                                            n_mxne_iter)
-            X = build_full_coefficient_matrix(as_, M.shape[1], X_)
+            X = build_full_coefficient_matrix(as_, M_train.shape[1], X_)
             # Sigma is set to 1 since the data are spatially pre-whitened
             loss_ = compute_log_likelihood(G, M_val, X, sigma=1)
             loss_path[i, j] = loss_
