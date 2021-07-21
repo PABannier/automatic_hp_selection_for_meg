@@ -47,11 +47,11 @@ def solve_using_temporal_cv(G, M, n_orient, n_mxne_iter=5, grid_length=15, K=5,
             loss_path[i, j] = loss_
 
     loss_path = loss_path.mean(axis=0)
-    idx_selected_alpha = loss_path.argmax()
+    idx_selected_alpha = loss_path.argmin()
     best_alpha = grid[idx_selected_alpha]
 
     # Refitting
     best_X, best_as = solve_irmxne_problem(G, M, best_alpha, n_orient,
-                                           n_mxne_iter=5)
+                                           n_mxne_iter=n_mxne_iter)
 
     return best_X, best_as
