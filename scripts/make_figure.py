@@ -1,5 +1,4 @@
 import argparse
-from scripts.interactive_plot import CRITERION
 import joblib
 import os.path as op
 
@@ -92,9 +91,7 @@ if __name__ == "__main__":
         views=["lat", "med"],
         hemi="split",
         size=(1000, 500),
-        # subject="sample",
         subjects_dir=subjects_dir,
-        # initial_time=max_t,
         background="w",
         clim="auto",
         colorbar=False,

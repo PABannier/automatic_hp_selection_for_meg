@@ -18,15 +18,14 @@ def compute_log_likelihood(G, M_val, X, sigma=1):
     )
 
 def solve_using_temporal_cv(G, M, n_orient, n_mxne_iter=5, grid_length=15, K=5,
-                            random_state=0):
+                            random_state=None):
     """
     Solves the multi-task Lasso problem with a group l2,0.5 penalty with irMxNE.
     Regularization hyperparameter selection is done using (temporal) CV.
     """
-    alpha_max = compute_alpha_max(G, M, n_orient)
-
     folds = np.array_split(range(M.shape[1]), K)
     loss_path = np.empty((K, grid_length))
+    alpha_max = compute_alpha_max(G, M, n_orient)
     grid = np.geomspace(alpha_max, alpha_max * 0.1, grid_length)
 
     for i in range(len(folds)):
@@ -48,7 +47,7 @@ def solve_using_temporal_cv(G, M, n_orient, n_mxne_iter=5, grid_length=15, K=5,
             loss_path[i, j] = loss_
 
     loss_path = loss_path.mean(axis=0)
-    idx_selected_alpha = loss_path.argmin()
+    idx_selected_alpha = loss_path.argmax()
     best_alpha = grid[idx_selected_alpha]
 
     # Refitting

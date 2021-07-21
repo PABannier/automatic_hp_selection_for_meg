@@ -3,13 +3,18 @@ from numpy.linalg import norm
 from mne.inverse_sparse.mxne_inverse import (_prepare_gain, is_fixed_orient,
                                              _reapply_source_weighting,
                                              _make_sparse_stc)
-from mne.inverse_sparse.mxne_optim import (mixed_norm_solver, 
-                                           iterative_mixed_norm_solver)
+from mne.inverse_sparse.mxne_optim import iterative_mixed_norm_solver
+
 
 def groups_norm2(A, n_orient=1):
     """Compute squared L2 norms of groups inplace."""
     n_positions = A.shape[0] // n_orient
     return np.sum(np.power(A, 2, A).reshape(n_positions, -1), axis=1)
+
+
+def sum_squared(X):
+    X_flat = X.ravel(order="F" if np.isfortran(X) else "C")
+    return np.dot(X_flat, X_flat)
 
 
 def norm_l2_05(X, n_orient, copy=True):
@@ -65,16 +70,16 @@ def apply_solver(solver, evoked, forward, noise_cov, depth=0.9, loose=0.9,
 
 
 def build_full_coefficient_matrix(active_set, n_times, coef):
-        """Building full coefficient matrix and filling active set with
-        non-zero coefficients"""
-        final_coef_ = np.zeros((len(active_set), n_times))
-        if coef is not None:
-            final_coef_[active_set] = coef
-        return final_coef_
+    """Building full coefficient matrix and filling active set with
+    non-zero coefficients"""
+    final_coef_ = np.zeros((len(active_set), n_times))
+    if coef is not None:
+        final_coef_[active_set] = coef
+    return final_coef_
 
 
-def solve_irmxne_problem(G, M, alpha, n_orient, n_mxne_iter=5):
-        X, active_set, _ = iterative_mixed_norm_solver(M, G, alpha, 
-                                                       n_mxne_iter, 
-                                                       n_orient=n_orient)
-        return X, active_set
+def solve_irmxne_problem(G, M, alpha, n_orient, n_mxne_iter=5, tol=1e-8):
+    X, active_set, _ = iterative_mixed_norm_solver(M, G, alpha, n_mxne_iter,
+                                                   n_orient=n_orient,
+                                                   debias=False, tol=tol)
+    return X, active_set
