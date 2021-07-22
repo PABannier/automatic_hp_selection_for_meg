@@ -10,7 +10,7 @@ from hp_selection.utils import apply_solver
 
 
 CONDITIONS = ["Left Auditory", "Right Auditory", "Left visual",
-                "Right visual"]
+              "Right visual"]
 
 
 def load_data(condition):
@@ -22,7 +22,7 @@ def load_data(condition):
     noise_cov = mne.read_cov(cov_fname)
     evoked = mne.read_evokeds(ave_fname, condition=condition,
                               baseline=(None, 0))
-    evoked.crop(tmin=0.04, tmax=0.18)
+    evoked.crop(tmin=0.05, tmax=0.15)
 
     evoked = evoked.pick_types(eeg=False, meg=True)
     forward = mne.read_forward_solution(fwd_fname)
@@ -47,13 +47,13 @@ if __name__ == "__main__":
         evoked, forward, noise_cov = load_data(condition)
 
         # SURE
-        # stc = solve_using_sure(evoked, forward, noise_cov)
-        # save_stc(stc, condition, "sure")
+        stc = solve_using_sure(evoked, forward, noise_cov)
+        save_stc(stc, condition, "sure")
 
         # Spatial CV
-        stc = apply_solver(solve_using_spatial_cv, evoked, forward, noise_cov)
-        save_stc(stc, condition, "spatial_cv")
+        # stc = apply_solver(solve_using_spatial_cv, evoked, forward, noise_cov)
+        # save_stc(stc, condition, "spatial_cv")
 
         # Temporal CV
-        stc = apply_solver(solve_using_temporal_cv, evoked, forward, noise_cov)
-        save_stc(stc, condition, "temporal_cv")
+        # stc = apply_solver(solve_using_temporal_cv, evoked, forward, noise_cov)
+        # save_stc(stc, condition, "temporal_cv")

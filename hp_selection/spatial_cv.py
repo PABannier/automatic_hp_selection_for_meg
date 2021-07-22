@@ -1,5 +1,4 @@
 import numpy as np
-from numpy.linalg import norm
 from sklearn.model_selection import KFold
 from sklearn.metrics import mean_squared_error
 from hp_selection.utils import (compute_alpha_max, solve_irmxne_problem,
@@ -9,8 +8,8 @@ from hp_selection.utils import (compute_alpha_max, solve_irmxne_problem,
 def solve_using_spatial_cv(G, M, n_orient, n_mxne_iter=5, grid_length=15, K=5,
                            random_state=0):
     """
-    Solves the multi-task Lasso problem with a group l2,0.5 penalty with irMxNE.
-    Regularization hyperparameter selection is done using (spatial) CV.
+    Solves the multi-task Lasso problem with a group l2,0.5 penalty with
+    irMxNE. Regularization hyperparameter selection is done using (spatial) CV.
     """
     kf = KFold(K, shuffle=True, random_state=random_state)
     loss_path = np.empty((K, grid_length))
@@ -32,8 +31,6 @@ def solve_using_spatial_cv(G, M, n_orient, n_mxne_iter=5, grid_length=15, K=5,
     loss_path = loss_path.mean(axis=0)
     idx_selected_alpha = loss_path.argmin()
     best_alpha = grid[idx_selected_alpha]
-
-    import ipdb; ipdb.set_trace()
 
     # Refitting
     best_X, best_as = solve_irmxne_problem(G, M, best_alpha, n_orient,

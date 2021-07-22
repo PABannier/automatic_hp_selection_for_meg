@@ -57,10 +57,10 @@ def add_foci_to_brain_surface(brain, stc, ax):
 def add_margin(nonwhite_col, margin=5):
     margin_nonwhite_col = nonwhite_col.copy()
     for i in range(len(nonwhite_col)):
-        if nonwhite_col[i] == True and nonwhite_col[i - 1] == False:
-            margin_nonwhite_col[i - (1 + margin) : i - 1] = True
-        elif nonwhite_col[i] == False and nonwhite_col[i - 1] == True:
-            margin_nonwhite_col[i : i + margin] = True
+        if nonwhite_col[i] and not nonwhite_col[i - 1]:
+            margin_nonwhite_col[i - (1 + margin): i - 1] = True
+        elif not nonwhite_col[i] and nonwhite_col[i - 1]:
+            margin_nonwhite_col[i: i + margin] = True
     return margin_nonwhite_col
 
 

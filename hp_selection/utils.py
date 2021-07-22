@@ -1,5 +1,5 @@
+import functools
 import numpy as np
-from numpy.linalg import norm
 from mne.inverse_sparse.mxne_inverse import (_prepare_gain, is_fixed_orient,
                                              _reapply_source_weighting,
                                              _make_sparse_stc)
@@ -83,3 +83,47 @@ def solve_irmxne_problem(G, M, alpha, n_orient, n_mxne_iter=5, tol=1e-8):
                                                    n_orient=n_orient,
                                                    debias=False, tol=tol)
     return X, active_set
+
+
+@functools.lru_cache(None)
+def get_dgemm():
+    from scipy import linalg
+
+    return linalg.get_blas_funcs("gemm", (np.empty(0, np.float64),))
+
+
+def norm_l2_1(X, n_orient, copy=True):
+    if X.size == 0:
+        return 0.0
+    if copy:
+        X = X.copy()
+    return np.sum(np.sqrt(groups_norm2(X, n_orient)))
+
+
+def primal_mtl(X, Y, coef, active_set, alpha, n_orient=1):
+    """Primal objective function for multi-task
+    LASSO
+    """
+    Y_hat = np.dot(X[:, active_set], coef)
+    R = Y - Y_hat
+    penalty = norm_l2_1(coef, n_orient, copy=True)
+    nR2 = sum_squared(R)
+    p_obj = 0.5 * nR2 + alpha * penalty
+    return p_obj
+
+
+def get_duality_gap_mtl(X, Y, coef, active_set, alpha, n_orient=1):
+    Y_hat = np.dot(X[:, active_set], coef)
+    R = Y - Y_hat
+    penalty = norm_l2_1(coef, n_orient, copy=True)
+    nR2 = sum_squared(R)
+    p_obj = 0.5 * nR2 + alpha * penalty
+
+    dual_norm = norm_l2_inf(np.dot(X.T, R), n_orient, copy=False)
+    scaling = alpha / dual_norm
+    scaling = min(scaling, 1.0)
+    d_obj = (scaling - 0.5 * (scaling ** 2)) * nR2 + scaling * np.sum(
+        R * Y_hat
+    )
+    gap = p_obj - d_obj
+    return gap, p_obj, d_obj

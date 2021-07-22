@@ -1,6 +1,6 @@
+from hp_selection.ll_warm_start import LLForReweightedMTL
 import numpy as np
-from hp_selection.utils import (compute_alpha_max, solve_irmxne_problem,
-                                build_full_coefficient_matrix)
+from hp_selection.utils import compute_alpha_max, solve_irmxne_problem
 
 
 def compute_log_likelihood(G, M_val, X, sigma=1):
@@ -17,41 +17,26 @@ def compute_log_likelihood(G, M_val, X, sigma=1):
         np.linalg.det(sigma_M_train)
     )
 
-def solve_using_temporal_cv(G, M, n_orient, n_mxne_iter=5, grid_length=15, K=5,
+
+def solve_using_temporal_cv(G, M, n_orient, n_mxne_iter=5, grid_length=50, K=5,
                             random_state=None):
     """
-    Solves the multi-task Lasso problem with a group l2,0.5 penalty with irMxNE.
-    Regularization hyperparameter selection is done using (temporal) CV.
+    Solves the multi-task Lasso problem with a group l2,0.5 penalty with
+    irMxNE. Regularization hyperparameter selection is done using (temporal)
+    CV.
     """
-    folds = np.array_split(range(M.shape[1]), K)
-    loss_path = np.empty((K, grid_length))
-    alpha_max = compute_alpha_max(G, M, n_orient)
+    # Scaling alpha by number of samples (LLForReweightedMTL expects scaled
+    # alpha)
+    alpha_max = compute_alpha_max(G, M, n_orient) / G.shape[0]
     grid = np.geomspace(alpha_max, alpha_max * 0.1, grid_length)
-
-    for i in range(len(folds)):
-        train_folds = folds.copy()
-        del train_folds[i]
-        train_indices = np.concatenate(train_folds)
-        val_indices = folds[i]
-
-        # Contiguous split (time series) of the measurement matrix
-        M_train, M_val = M[:, train_indices], M[:, val_indices]
-
-        # Fitting on grid
-        for j, alpha in enumerate(grid):
-            X_, as_ = solve_irmxne_problem(G, M_train, alpha, n_orient,
-                                           n_mxne_iter)
-            X = build_full_coefficient_matrix(as_, M_train.shape[1], X_)
-            # Sigma is set to 1 since the data are spatially pre-whitened
-            loss_ = compute_log_likelihood(G, M_val, X, sigma=1)
-            loss_path[i, j] = loss_
-
-    loss_path = loss_path.mean(axis=0)
-    idx_selected_alpha = loss_path.argmin()
-    best_alpha = grid[idx_selected_alpha]
+    # Sigma = 1 because data are already pre-whitened
+    criterion = LLForReweightedMTL(1, grid, n_orient=n_orient,
+                                   random_state=random_state)
+    best_alpha = criterion.get_val(G, M)[1]
 
     # Refitting
-    best_X, best_as = solve_irmxne_problem(G, M, best_alpha, n_orient,
-                                           n_mxne_iter=n_mxne_iter)
-
+    # Re-scaling alpha by multiplying it by n_samples since
+    # solve_irmxne_problem expects an unnormalized alpha.
+    best_X, best_as = solve_irmxne_problem(G, M, best_alpha * G.shape[0],
+                                           n_orient, n_mxne_iter=n_mxne_iter)
     return best_X, best_as
