@@ -1,32 +1,15 @@
-import os
-import joblib
-import mne
-from mne.datasets import sample
+import os, joblib
 
 from hp_selection.sure import solve_using_sure
 from hp_selection.spatial_cv import solve_using_spatial_cv
 from hp_selection.temporal_cv import solve_using_temporal_cv
 from hp_selection.utils import apply_solver
 
+from hp_selection.utils import load_data, load_somato_data
+
 
 CONDITIONS = ["Left Auditory", "Right Auditory", "Left visual",
-              "Right visual"]
-
-
-def load_data(condition):
-    data_path = sample.data_path()
-    fwd_fname = data_path + '/MEG/sample/sample_audvis-meg-eeg-oct-6-fwd.fif'
-    ave_fname = data_path + '/MEG/sample/sample_audvis-ave.fif'
-    cov_fname = data_path + '/MEG/sample/sample_audvis-shrunk-cov.fif'
-
-    noise_cov = mne.read_cov(cov_fname)
-    evoked = mne.read_evokeds(ave_fname, condition=condition,
-                              baseline=(None, 0))
-    evoked.crop(tmin=0.05, tmax=0.15)
-
-    evoked = evoked.pick_types(eeg=False, meg=True)
-    forward = mne.read_forward_solution(fwd_fname)
-    return evoked, forward, noise_cov
+              "Right visual", "somato"]
 
 
 def save_stc(stc, condition, solver):
@@ -43,17 +26,23 @@ def save_stc(stc, condition, solver):
 
 
 if __name__ == "__main__":
+    CONDITIONS = ["somato"]
+
     for condition in CONDITIONS:
-        evoked, forward, noise_cov = load_data(condition)
+        if condition == "somato":
+            evoked, forward, noise_cov = load_somato_data()
+        else:
+            evoked, forward, noise_cov = load_data(condition)
 
-        # # SURE
-        # stc = solve_using_sure(evoked, forward, noise_cov)
-        # save_stc(stc, condition, "sure")
+        # SURE
+        stc = solve_using_sure(evoked, forward, noise_cov)
+        save_stc(stc, condition, "sure")
 
-        # # Spatial CV
+        # Spatial CV
         # stc = apply_solver(solve_using_spatial_cv, evoked, forward, noise_cov)
         # save_stc(stc, condition, "spatial_cv")
 
         # Temporal CV
-        stc = apply_solver(solve_using_temporal_cv, evoked, forward, noise_cov)
-        save_stc(stc, condition, "temporal_cv")
+        # stc = apply_solver(solve_using_temporal_cv, evoked, forward, noise_cov)
+        # save_stc(stc, condition, "temporal_cv")
+
