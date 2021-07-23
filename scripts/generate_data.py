@@ -46,14 +46,14 @@ if __name__ == "__main__":
     for condition in CONDITIONS:
         evoked, forward, noise_cov = load_data(condition)
 
-        # SURE
-        stc = solve_using_sure(evoked, forward, noise_cov)
-        save_stc(stc, condition, "sure")
+        # # SURE
+        # stc = solve_using_sure(evoked, forward, noise_cov)
+        # save_stc(stc, condition, "sure")
 
-        # Spatial CV
+        # # Spatial CV
         # stc = apply_solver(solve_using_spatial_cv, evoked, forward, noise_cov)
         # save_stc(stc, condition, "spatial_cv")
 
         # Temporal CV
-        # stc = apply_solver(solve_using_temporal_cv, evoked, forward, noise_cov)
-        # save_stc(stc, condition, "temporal_cv")
+        stc = apply_solver(solve_using_temporal_cv, evoked, forward, noise_cov)
+        save_stc(stc, condition, "temporal_cv")

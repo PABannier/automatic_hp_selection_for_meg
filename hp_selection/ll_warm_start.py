@@ -133,7 +133,7 @@ class LLForReweightedMTL:
 
         for j in range(n_positions):
             idx = slice(j * self.n_orient, (j + 1) * self.n_orient)
-            variances[idx] = np.var(X[idx, :], axis=-1)
+            variances[idx] = np.var(X[idx, :])
         return variances
 
     def _penalty(self, coef):
