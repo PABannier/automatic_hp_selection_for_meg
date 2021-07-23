@@ -86,7 +86,7 @@ class MultiTaskLassoUnscaled(BaseEstimator, RegressorMixin):
         self.coef_ = None
         self.active_set_ = None
 
-    def _fit(self, X, Y, alpha=None):
+    def fit(self, X, Y, alpha=None):
         """Fits the MultiTaskLasso estimator to the X and Y
         matrices.
 
@@ -374,11 +374,11 @@ class MultiTaskLassoUnscaled(BaseEstimator, RegressorMixin):
         return coef, active_set
 
 
-class MultiTaskLassoOrientation(MultiTaskLassoUnscaled):
-    def __init__(self, alpha, **kwargs):
-        super().__init__(alpha, **kwargs)
+# class MultiTaskLassoOrientation(MultiTaskLassoUnscaled):
+#     def __init__(self, alpha, **kwargs):
+#         super().__init__(alpha, **kwargs)
 
-    def fit(self, X, Y):
-        alpha_scaled = self.alpha * len(X)
-        self._fit(X, Y, alpha_scaled)
-        return self
+#     def fit(self, X, Y):
+#         alpha_scaled = self.alpha * len(X)
+#         self._fit(X, Y, alpha_scaled)
+#         return self

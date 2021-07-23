@@ -41,7 +41,7 @@ def norm_l2_inf(X, n_orient, copy=True):
 
 def compute_alpha_max(G, M, n_orient):
     """Compute alpha max"""
-    return norm_l2_inf(np.dot(G.T, M), n_orient, copy=False)
+    return norm_l2_inf(np.dot(G.T, M), n_orient, copy=True)
 
 
 def apply_solver(solver, evoked, forward, noise_cov, depth=0.9, loose=0.9,

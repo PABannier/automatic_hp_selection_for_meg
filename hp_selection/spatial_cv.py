@@ -7,7 +7,7 @@ from sklearn.utils.validation import check_X_y, check_is_fitted, check_array
 from sklearn.base import BaseEstimator, RegressorMixin
 from sklearn.metrics import f1_score, jaccard_score
 
-from hp_selection.solver_free_orient import MultiTaskLassoOrientation
+from hp_selection.solver_free_orient import MultiTaskLassoUnscaled
 from hp_selection.utils import (compute_alpha_max, solve_irmxne_problem,
                                 build_full_coefficient_matrix)
 
@@ -126,9 +126,9 @@ class ReweightedMultiTaskLassoCV(BaseEstimator, RegressorMixin):
         n_features, n_tasks = X_train.shape[1], Y_train.shape[1]
         coef_0 = np.empty((self.n_alphas, n_features, n_tasks))
 
-        regressor = MultiTaskLassoOrientation(np.nan, warm_start=True,
-                                              n_orient=self.n_orient,
-                                              accelerated=True)
+        regressor = MultiTaskLassoUnscaled(np.nan, warm_start=True,
+                                           n_orient=self.n_orient,
+                                           accelerated=True)
 
         # Copy grid of first iteration (leverages convexity)
         for j, alpha in enumerate(self.alpha_grid):
@@ -195,7 +195,7 @@ def solve_using_spatial_cv(G, M, n_orient, n_mxne_iter=5, grid_length=15, K=5,
     Solves the multi-task Lasso problem with a group l2,0.5 penalty with
     irMxNE. Regularization hyperparameter selection is done using (spatial) CV.
     """
-    alpha_max = compute_alpha_max(G, M, n_orient) / G.shape[0]
+    alpha_max = compute_alpha_max(G, M, n_orient)
     grid = np.geomspace(alpha_max, alpha_max * 0.1, grid_length)
 
     criterion = ReweightedMultiTaskLassoCV(grid, n_folds=K,
@@ -203,7 +203,7 @@ def solve_using_spatial_cv(G, M, n_orient, n_mxne_iter=5, grid_length=15, K=5,
                                            random_state=random_state,
                                            n_orient=n_orient)
     criterion.fit(G, M)
-    rescaled_best_alpha = criterion.best_alpha_ * G.shape[0]
+    rescaled_best_alpha = criterion.best_alpha_
 
     # Refitting
     best_X, best_as = solve_irmxne_problem(G, M, rescaled_best_alpha, n_orient,

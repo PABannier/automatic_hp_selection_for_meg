@@ -6,7 +6,7 @@ from sklearn.utils import check_X_y
 
 from celer import MultiTaskLasso
 
-from hp_selection.solver_free_orient import MultiTaskLassoOrientation
+from hp_selection.solver_free_orient import MultiTaskLassoUnscaled
 
 
 class LLForReweightedMTL:
@@ -34,7 +34,6 @@ class LLForReweightedMTL:
 
     def get_val(self, X, Y):
         X, Y = check_X_y(X, Y, multi_output=True)
-
         coefs_grid = self._fit_reweighted_with_grid(X, Y)
 
         for i, coef in enumerate(coefs_grid):
@@ -45,7 +44,6 @@ class LLForReweightedMTL:
 
         best_ll_ = np.min(self.ll_path_)
         best_alpha_ = self.alpha_grid[np.argmin(self.ll_path_)]
-
         return best_ll_, best_alpha_
 
     def _reweight_op(self, regressor, X, Y, w):
@@ -87,9 +85,9 @@ class LLForReweightedMTL:
             regressor = MultiTaskLasso(np.nan, fit_intercept=False,
                                        warm_start=True)
         else:
-            regressor = MultiTaskLassoOrientation(np.nan, warm_start=True,
-                                                  n_orient=self.n_orient,
-                                                  accelerated=True)
+            regressor = MultiTaskLassoUnscaled(np.nan, warm_start=True,
+                                               n_orient=self.n_orient,
+                                               accelerated=True)
 
         # Copy grid of first iteration (leverages convexity)
         print("First iteration")

@@ -10,9 +10,7 @@ def solve_using_temporal_cv(G, M, n_orient, n_mxne_iter=5, grid_length=50, K=5,
     irMxNE. Regularization hyperparameter selection is done using (temporal)
     CV.
     """
-    # Scaling alpha by number of samples (LLForReweightedMTL expects scaled
-    # alpha)
-    alpha_max = compute_alpha_max(G, M, n_orient) / G.shape[0]
+    alpha_max = compute_alpha_max(G, M, n_orient)
     grid = np.geomspace(alpha_max, alpha_max * 0.1, grid_length)
     # Sigma = 1 because data are already pre-whitened
     criterion = LLForReweightedMTL(1, grid, n_orient=n_orient,
@@ -20,8 +18,6 @@ def solve_using_temporal_cv(G, M, n_orient, n_mxne_iter=5, grid_length=50, K=5,
     best_alpha = criterion.get_val(G, M)[1]
 
     # Refitting
-    # Re-scaling alpha by multiplying it by n_samples since
-    # solve_irmxne_problem expects an unnormalized alpha.
-    best_X, best_as = solve_irmxne_problem(G, M, best_alpha * G.shape[0],
-                                           n_orient, n_mxne_iter=n_mxne_iter)
+    best_X, best_as = solve_irmxne_problem(G, M, best_alpha, n_orient,
+                                           n_mxne_iter=n_mxne_iter)
     return best_X, best_as
