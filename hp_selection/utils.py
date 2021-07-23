@@ -1,5 +1,9 @@
-import functools
+import functools, os
+
 import numpy as np
+
+import mne
+from mne.datasets import sample, somato
 from mne.inverse_sparse.mxne_inverse import (_prepare_gain, is_fixed_orient,
                                              _reapply_source_weighting,
                                              _make_sparse_stc)
@@ -127,3 +131,50 @@ def get_duality_gap_mtl(X, Y, coef, active_set, alpha, n_orient=1):
     )
     gap = p_obj - d_obj
     return gap, p_obj, d_obj
+
+
+def load_data(condition):
+    data_path = sample.data_path()
+    fwd_fname = data_path + '/MEG/sample/sample_audvis-meg-eeg-oct-6-fwd.fif'
+    ave_fname = data_path + '/MEG/sample/sample_audvis-ave.fif'
+    cov_fname = data_path + '/MEG/sample/sample_audvis-shrunk-cov.fif'
+
+    noise_cov = mne.read_cov(cov_fname)
+    evoked = mne.read_evokeds(ave_fname, condition=condition,
+                              baseline=(None, 0))
+    evoked.crop(tmin=0.05, tmax=0.15)
+
+    evoked = evoked.pick_types(eeg=False, meg=True)
+    forward = mne.read_forward_solution(fwd_fname)
+    return evoked, forward, noise_cov
+
+
+def load_somato_data():
+    data_path = somato.data_path()
+    subject = "01"
+    task = "somato"
+
+    raw_fname = os.path.join(data_path, "sub-{}".format(subject), "meg",
+                             "sub-{}_task-{}_meg.fif".format(subject, task))
+    fwd_fname = os.path.join(data_path, "derivatives",
+                             "sub-{}".format(subject),
+                             "sub-{}_task-{}-fwd.fif".format(subject, task))
+
+    # Read evoked
+    raw = mne.io.read_raw_fif(raw_fname)
+    events = mne.find_events(raw, stim_channel="STI 014")
+    reject = dict(grad=4000e-13, eog=350e-6)
+    picks = mne.pick_types(raw.info, meg=True, eog=True)
+
+    event_id, tmin, tmax = 1, -1.0, 3.0
+    epochs = mne.Epochs(raw, events, event_id, tmin, tmax, picks=picks,
+                        reject=reject, preload=True)
+    evoked = epochs.filter(1, None).average()
+    evoked = evoked.pick_types(meg=True)
+    evoked.crop(tmin=0.03, tmax=0.05)  # Choose a timeframe not too large
+
+    # Handling forward solution
+    forward = mne.read_forward_solution(fwd_fname)
+    noise_cov = mne.compute_covariance(epochs, rank="info", tmax=0.0)
+
+    return evoked, forward, noise_cov
