@@ -7,7 +7,6 @@ from hp_selection.utils import apply_solver
 
 from hp_selection.utils import load_data, load_somato_data
 
-
 CONDITIONS = ["Left Auditory", "Right Auditory", "Left visual",
               "Right visual", "somato"]
 
@@ -35,7 +34,7 @@ if __name__ == "__main__":
             evoked, forward, noise_cov = load_data(condition)
 
         # SURE
-        stc = solve_using_sure(evoked, forward, noise_cov)
+        stc = solve_using_sure(evoked, forward, noise_cov, loose=0)
         save_stc(stc, condition, "sure")
 
         # Spatial CV
