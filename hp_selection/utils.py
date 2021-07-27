@@ -1,4 +1,5 @@
 import functools, os
+import joblib
 from pathlib import Path
 
 import numpy as np
@@ -9,10 +10,6 @@ from mne.inverse_sparse.mxne_inverse import (_prepare_gain, is_fixed_orient,
                                              _reapply_source_weighting,
                                              _make_sparse_stc)
 from mne.inverse_sparse.mxne_optim import iterative_mixed_norm_solver
-
-from hp_selection.spatial_cv import solve_using_spatial_cv
-from hp_selection.temporal_cv import solve_using_temporal_cv
-from hp_selection.sure import solve_using_sure
 
 
 def groups_norm2(A, n_orient=1):
@@ -203,9 +200,9 @@ def load_data_from_camcan(folder_name, data_path, orient):
     evokeds = mne.read_evokeds(ave_fname, condition=None, baseline=(None, 0))
     evoked = evokeds[-2]
 
-    if not os.path.exists(f"evokeds/{folder_name}"):
-        os.mkdir(f"evokeds/{folder_name}")
-    joblib.dump(evoked, f"evokeds/{folder_name}/evoked_{orient}_full.pkl")
+    if not os.path.exists(f"../data/camcan/evokeds/{folder_name}"):
+        os.mkdir(f"../data/camcan/evokeds/{folder_name}")
+    joblib.dump(evoked, f"../data/camcan/evokeds/{folder_name}/evoked_{orient}_full.pkl")
 
     forward = mne.read_forward_solution(fwd_fname)
 
@@ -213,19 +210,3 @@ def load_data_from_camcan(folder_name, data_path, orient):
     evoked = evoked.pick_types(eeg=False, meg=True)
 
     return evoked, forward, noise_cov, subject_dir
-
-
-def solve_camcan_inverse_problem(folder_name, data_path, criterion):
-    evoked, forward, noise_cov = load_data_from_camcan(folder_name, data_path, 
-                                                       "free")
-    
-    if criterion == "sure":
-        stc = solve_using_sure(evoked, forward, noise_cov, loose=0)
-    elif criterion == "spatial_cv":
-        stc = apply_solver(solve_using_spatial_cv, evoked, forward, noise_cov)
-    elif criterion == "temporal_cv":
-        stc = apply_solver(solve_using_temporal_cv, evoked, forward, noise_cov)
-    else:
-        raise Exception("Wrong criterion!")
-    
-    return stc, evoked, forward, noise_cov

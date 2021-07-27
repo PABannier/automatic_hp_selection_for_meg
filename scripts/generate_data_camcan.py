@@ -6,17 +6,20 @@ import joblib
 
 import pandas as pd
 
-from hp_selection.utils import solve_camcan_inverse_problem
+from hp_selection.utils import load_data_from_camcan, apply_solver
+from hp_selection.spatial_cv import solve_using_spatial_cv
+from hp_selection.temporal_cv import solve_using_temporal_cv
+from hp_selection.sure import solve_using_sure
 
-N_JOBS = 20  # -1
+N_JOBS = 1  # -1
 INNER_MAX_NUM_THREADS = 1
 
 DATA_PATH = Path(
-    "../../../../../rhochenb/Data/Cam-CAN/BIDS/derivatives/mne-study-template"
+    "../../../rhochenb/Data/Cam-CAN/BIDS/derivatives/mne-study-template"
 )
 
 PARTICIPANTS_INFO = Path(
-    "../../../../../../../store/data/camcan/BIDSsep/passive/participants.tsv"
+    "../../../../../store/data/camcan/BIDSsep/passive/participants.tsv"
 )
 
 CRASHING_PATIENTS = [
@@ -78,6 +81,22 @@ EXISTING_PATIENTS = [
     x for x in EXISTING_PATIENTS if x not in CRASHING_PATIENTS
 ]
 
+def solve_camcan_inverse_problem(folder_name, data_path, criterion):
+    evoked, forward, noise_cov = load_data_from_camcan(folder_name, data_path, 
+                                                       "free")
+    
+    if criterion == "sure":
+        stc = solve_using_sure(evoked, forward, noise_cov, loose=0)
+    elif criterion == "spatial_cv":
+        stc = apply_solver(solve_using_spatial_cv, evoked, forward, noise_cov)
+    elif criterion == "temporal_cv":
+        stc = apply_solver(solve_using_temporal_cv, evoked, forward, noise_cov)
+    else:
+        raise Exception("Wrong criterion!")
+    
+    return stc, evoked, forward, noise_cov
+
+
 def solve_for_patient(folder_path, criterion, loose=0.9):
     folder_name = folder_path.split("/")[-1]
     print(f"Solving #{folder_name}")
@@ -85,7 +104,7 @@ def solve_for_patient(folder_path, criterion, loose=0.9):
     patient_path = DATA_PATH / folder_name
     stc = solve_camcan_inverse_problem(folder_name, patient_path, criterion)
 
-    out_dir = f"stcs/{folder_name}"
+    out_dir = f"../data/camcan/stcs/{folder_name}"
     out_path_stc = out_dir + f"/free.pkl"
 
     if not os.path.isdir(out_dir):
@@ -106,6 +125,6 @@ if __name__ == "__main__":
     # Select subjects
     with parallel_backend("loky", inner_max_num_threads=INNER_MAX_NUM_THREADS):
         Parallel(N_JOBS)(
-            delayed(solve_for_patient)(folder_name)
+            delayed(solve_for_patient)(folder_name, "sure")
             for folder_name in patient_folders
         )
