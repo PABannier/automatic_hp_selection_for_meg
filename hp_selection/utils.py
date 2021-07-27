@@ -209,4 +209,4 @@ def load_data_from_camcan(folder_name, data_path, orient):
     evoked.crop(tmin=0.08, tmax=0.15)  # 0.08 - 0.15
     evoked = evoked.pick_types(eeg=False, meg=True)
 
-    return evoked, forward, noise_cov, subject_dir
+    return evoked, forward, noise_cov
