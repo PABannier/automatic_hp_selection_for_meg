@@ -98,7 +98,7 @@ if __name__ == "__main__":
         colormap=colormap,
         time_viewer=False,
         show_traces=False,
-        cortex="low_contrast",
+        cortex="classic",
         volume_options=dict(resolution=1),
     )
 
@@ -122,9 +122,12 @@ if __name__ == "__main__":
 
     # Add blank columns for margin
     nonwhite_col = add_margin(nonwhite_col)
-
     cropped_screenshot = screenshot[nonwhite_row][:, nonwhite_col]
 
+    # Save brain in standalone fashion
+    plt.imsave("output.png", cropped_screenshot)
+
+    # Assemble with current activation plot
     evoked_idx = 1
     brain_idx = 0
 

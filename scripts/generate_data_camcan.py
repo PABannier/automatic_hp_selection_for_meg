@@ -104,7 +104,7 @@ def solve_for_patient(folder_path, criterion, loose=0.9):
     patient_path = DATA_PATH / folder_name
     stc = solve_camcan_inverse_problem(folder_name, patient_path, criterion)
 
-    out_dir = f"../data/camcan/stcs/{folder_name}"
+    out_dir = f"../data/camcan/stcs_tcv/{folder_name}"
     out_path_stc = out_dir + f"/free.pkl"
 
     if not os.path.isdir(out_dir):

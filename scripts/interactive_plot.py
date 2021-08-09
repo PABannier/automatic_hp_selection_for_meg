@@ -26,7 +26,7 @@ if __name__ == "__main__":
     if CONDITION == "somato":
         evoked, forward, noise_cov = load_somato_data()
     else:
-        evoked, forward, noise_cov = load_data()
+        evoked, forward, noise_cov = load_data(CONDITION)
 
     fname = CONDITION.lower().replace(" ", "_") + ".pkl"
     fpath = os.path.join(DATA_DIR, CRITERION, fname)
