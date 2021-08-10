@@ -10,6 +10,7 @@ from mne.inverse_sparse.mxne_inverse import (_prepare_gain, is_fixed_orient,
                                              _reapply_source_weighting,
                                              _make_sparse_stc)
 from mne.inverse_sparse.mxne_optim import iterative_mixed_norm_solver
+from mne.preprocessing import find_bad_channels_maxwell
 
 
 def groups_norm2(A, n_orient=1):
@@ -56,11 +57,13 @@ def apply_solver(solver, evoked, forward, noise_cov, depth=0.9, loose=0.9,
     # Handle depth weighting and whitening (here is no weights)
     forward, gain, gain_info, whitener, source_weighting, _ = _prepare_gain(
         forward, evoked.info, noise_cov, pca=False, depth=depth,
-        loose=loose, weights=None, weights_min=None, rank=None)
+        loose=loose, weights=None, weights_min=None, rank="info") # dict(meg=72)
 
     # Select channels of interest
     sel = [all_ch_names.index(name) for name in gain_info['ch_names']]
     M = evoked.data[sel]
+
+    import ipdb; ipdb.set_trace()
 
     # Spatial whitening
     M = np.dot(whitener, M)
@@ -135,18 +138,51 @@ def get_duality_gap_mtl(X, Y, coef, active_set, alpha, n_orient=1):
     return gap, p_obj, d_obj
 
 
-def load_data(condition):
+def load_data(condition, maxfilter=True):
     data_path = sample.data_path()
     fwd_fname = data_path + '/MEG/sample/sample_audvis-meg-eeg-oct-6-fwd.fif'
-    ave_fname = data_path + '/MEG/sample/sample_audvis-ave.fif'
-    cov_fname = data_path + '/MEG/sample/sample_audvis-shrunk-cov.fif'
 
-    noise_cov = mne.read_cov(cov_fname)
-    evoked = mne.read_evokeds(ave_fname, condition=condition,
-                              baseline=(None, 0))
-    evoked.crop(tmin=0.05, tmax=0.15)
+    if not maxfilter:
+        ave_fname = data_path + '/MEG/sample/sample_audvis-ave.fif'
+        cov_fname = data_path + '/MEG/sample/sample_audvis-shrunk-cov.fif'
 
-    evoked = evoked.pick_types(eeg=False, meg=True)
+        noise_cov = mne.read_cov(cov_fname)
+        evoked = mne.read_evokeds(ave_fname, condition=condition,
+                                  baseline=(None, 0))
+    else:
+        raw_fname = data_path + '/MEG/sample/sample_audvis_raw.fif'
+
+        raw = mne.io.read_raw_fif(raw_fname, verbose=False)
+
+        fine_cal_file = os.path.join(data_path, 'SSS', 'sss_cal_mgh.dat')
+        crosstalk_file = os.path.join(data_path, 'SSS', 'ct_sparse_mgh.fif')
+
+        raw.info['bads'] = []
+        raw_check = raw.copy()
+        auto_noisy_chs, auto_flat_chs, _ = find_bad_channels_maxwell(
+        raw_check, cross_talk=crosstalk_file, calibration=fine_cal_file,
+        return_scores=True, verbose=False)
+
+        bads = raw.info['bads'] + auto_noisy_chs + auto_flat_chs + ['MEG 2313']
+        raw.info['bads'] = bads
+
+        raw_sss = mne.preprocessing.maxwell_filter(raw, cross_talk=crosstalk_file,
+                                                calibration=fine_cal_file,
+                                                verbose=False)
+
+        events = mne.find_events(raw_sss)
+        reject = dict(grad=4000e-13, eog=350e-6)
+        picks = mne.pick_types(raw_sss.info, meg=True, eog=True)
+
+        event_id, tmin, tmax = 1, -1.0, 3.0
+        epochs = mne.Epochs(raw_sss, events, event_id, tmin, tmax, picks=picks,
+                            reject=reject, preload=True)
+        evoked = epochs.filter(1, None).average()
+
+        noise_cov = mne.compute_covariance(epochs, rank="info", tmax=0.0)
+
+    evoked = evoked.pick_types(meg=True)
+    evoked.crop(tmin=0.05, tmax=0.15)  # Choose a timeframe not too large
     forward = mne.read_forward_solution(fwd_fname)
     return evoked, forward, noise_cov
 
