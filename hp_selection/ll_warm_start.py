@@ -43,7 +43,10 @@ class LLForReweightedMTL:
             self.log_det_path_[i] = log_det_term
 
         best_ll_ = np.min(self.ll_path_)
-        best_alpha_ = self.alpha_grid[np.argmin(self.ll_path_)]
+        best_idx = np.argmin(self.ll_path_)
+        best_alpha_ = self.alpha_grid[best_idx]
+        self.coefs_grid_ = coefs_grid
+        self.best_coef_ = coefs_grid[best_idx]
         return best_ll_, best_alpha_
 
     def _reweight_op(self, regressor, X, Y, w):
