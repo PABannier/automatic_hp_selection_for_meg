@@ -31,16 +31,17 @@ if __name__ == "__main__":
     CONDITIONS += ['visual/left']
     CONDITIONS += ['visual/right']
     # CONDITIONS += ['somato']
-    simulated = False
-    # simulated = True
+    # simulated = False
+    simulated = True
+    # maxfilter = False
+    maxfilter = True
 
     for condition in CONDITIONS:
-        this_simulated = simulated
         if condition == "somato":
             evoked, forward, noise_cov = load_somato_data()
         else:
             evoked, forward, noise_cov = load_data(
-                condition, maxfilter=False, simulated=this_simulated)
+                condition, maxfilter=maxfilter, simulated=simulated)
 
         # SURE
         # stc = solve_using_sure(evoked, forward, noise_cov, loose=0)
@@ -53,6 +54,8 @@ if __name__ == "__main__":
         # Temporal CV
         stc = apply_solver(solve_using_temporal_cv, evoked, forward, noise_cov)
         stc_name = "temporal_cv"
-        if this_simulated:
+        if condition != "somato" and simulated:
             condition += "_simu"
+        if condition != "somato" and maxfilter:
+            condition += "_mf"
         save_stc(stc, condition, stc_name)

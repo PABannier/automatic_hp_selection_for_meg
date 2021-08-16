@@ -16,15 +16,20 @@ parser.add_argument(
     help="choice of condition. available: "
     + "auditory/left, auditory/right, visual/left, visual/right, somato",
 )
-
 parser.add_argument(
     "--simu",
     help="use simulated data",
     action='store_true',
 )
+parser.add_argument(
+    "--mf",
+    help="use maxfiltered data",
+    action='store_true',
+)
 
 args = parser.parse_args()
-CRITERION, CONDITION, simulated = args.criterion, args.condition, args.simu
+CRITERION, CONDITION = args.criterion, args.condition
+simulated, maxfilter = args.simu, args.mf
 
 DATA_DIR = "../data/"
 
@@ -47,6 +52,8 @@ if __name__ == "__main__":
     fname = CONDITION.lower().replace("/", "_")
     if simulated:
         fname += "_simu"
+    if maxfilter:
+        fname += "_mf"
     fpath = os.path.join(DATA_DIR, CRITERION, fname + ".pkl")
 
     stc = joblib.load(fpath)
