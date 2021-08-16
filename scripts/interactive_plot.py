@@ -45,9 +45,9 @@ if __name__ == "__main__":
         forward = mne.read_forward_solution(fwd_fname)
 
     fname = CONDITION.lower().replace("/", "_")
-    # if simulated:
-    #     fname += "_simu"
-    fpath = os.path.join(DATA_DIR, CRITERION + "_simu", fname + ".pkl")
+    if simulated:
+        fname += "_simu"
+    fpath = os.path.join(DATA_DIR, CRITERION, fname + ".pkl")
 
     stc = joblib.load(fpath)
     plot_sparse_source_estimates(forward["src"], stc, bgcolor=(1, 1, 1),

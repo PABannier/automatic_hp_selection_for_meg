@@ -27,11 +27,12 @@ def save_stc(stc, condition, solver):
 if __name__ == "__main__":
     CONDITIONS = []
     CONDITIONS += ['auditory/left']
-    # CONDITIONS += ['auditory/right']
-    # CONDITIONS += ['visual/left]
-    # CONDITIONS += ['visual/right']
+    CONDITIONS += ['auditory/right']
+    CONDITIONS += ['visual/left']
+    CONDITIONS += ['visual/right']
     # CONDITIONS += ['somato']
-    simulated = True
+    simulated = False
+    # simulated = True
 
     for condition in CONDITIONS:
         this_simulated = simulated
@@ -53,5 +54,5 @@ if __name__ == "__main__":
         stc = apply_solver(solve_using_temporal_cv, evoked, forward, noise_cov)
         stc_name = "temporal_cv"
         if this_simulated:
-            stc_name += "_simu"
+            condition += "_simu"
         save_stc(stc, condition, stc_name)
