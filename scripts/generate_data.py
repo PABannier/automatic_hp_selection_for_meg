@@ -25,23 +25,23 @@ def save_stc(stc, condition, solver):
 
 
 if __name__ == "__main__":
-    CONDITIONS = ["somato"]
+    CONDITIONS = ["Left Auditory"]
 
     for condition in CONDITIONS:
         if condition == "somato":
             evoked, forward, noise_cov = load_somato_data()
         else:
-            evoked, forward, noise_cov = load_data(condition)
+            evoked, forward, noise_cov = load_data(condition, maxfilter=False)
 
         # SURE
-        stc = solve_using_sure(evoked, forward, noise_cov, loose=0)
-        save_stc(stc, condition, "sure")
+        # stc = solve_using_sure(evoked, forward, noise_cov, loose=0)
+        # save_stc(stc, condition, "sure")
 
         # Spatial CV
         # stc = apply_solver(solve_using_spatial_cv, evoked, forward, noise_cov)
         # save_stc(stc, condition, "spatial_cv")
 
         # Temporal CV
-        # stc = apply_solver(solve_using_temporal_cv, evoked, forward, noise_cov)
-        # save_stc(stc, condition, "temporal_cv")
+        stc = apply_solver(solve_using_temporal_cv, evoked, forward, noise_cov)
+        save_stc(stc, condition, "temporal_cv")
 

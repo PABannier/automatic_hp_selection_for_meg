@@ -3,7 +3,7 @@ import numpy as np
 from hp_selection.utils import compute_alpha_max, solve_irmxne_problem
 
 
-def solve_using_temporal_cv(G, M, n_orient, n_mxne_iter=5, grid_length=50, K=5,
+def solve_using_temporal_cv(G, M, n_orient, n_mxne_iter=5, grid_length=15, K=5,
                             random_state=None):
     """
     Solves the multi-task Lasso problem with a group l2,0.5 penalty with
@@ -16,8 +16,8 @@ def solve_using_temporal_cv(G, M, n_orient, n_mxne_iter=5, grid_length=50, K=5,
     criterion = LLForReweightedMTL(1, grid, n_orient=n_orient,
                                    random_state=random_state)
     best_alpha = criterion.get_val(G, M)[1]
-
-    # Refitting
-    best_X, best_as = solve_irmxne_problem(G, M, best_alpha, n_orient,
-                                           n_mxne_iter=n_mxne_iter)
-    return best_X, best_as
+    import ipdb; ipdb.set_trace()
+    best_coef_ = criterion.best_coef_
+    best_as_ = np.linalg.norm(best_coef_, axis=1) != 0
+    best_X = best_coef_[best_as_]
+    return best_X, best_as_

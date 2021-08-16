@@ -57,13 +57,11 @@ def apply_solver(solver, evoked, forward, noise_cov, depth=0.9, loose=0.9,
     # Handle depth weighting and whitening (here is no weights)
     forward, gain, gain_info, whitener, source_weighting, _ = _prepare_gain(
         forward, evoked.info, noise_cov, pca=False, depth=depth,
-        loose=loose, weights=None, weights_min=None, rank="info") # dict(meg=72)
+        loose=loose, weights=None, weights_min=None, rank=None) # info
 
     # Select channels of interest
     sel = [all_ch_names.index(name) for name in gain_info['ch_names']]
     M = evoked.data[sel]
-
-    import ipdb; ipdb.set_trace()
 
     # Spatial whitening
     M = np.dot(whitener, M)
