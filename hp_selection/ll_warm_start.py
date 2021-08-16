@@ -24,6 +24,8 @@ class LLForReweightedMTL:
         self.trace_path_ = np.empty(self.n_alphas)
         self.log_det_path_ = np.empty(self.n_alphas)
 
+        self.best_coef_ = None
+
         if self.n_orient <= 0:
             raise ValueError("Number of orientations can't be negative.")
 
@@ -44,6 +46,7 @@ class LLForReweightedMTL:
 
         best_ll_ = np.min(self.ll_path_)
         best_alpha_ = self.alpha_grid[np.argmin(self.ll_path_)]
+        self.best_coef_ = coefs_grid[np.argmin(self.ll_path_)]
         return best_ll_, best_alpha_
 
     def _reweight_op(self, regressor, X, Y, w):
