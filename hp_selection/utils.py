@@ -152,6 +152,11 @@ def load_data(condition, maxfilter=True, simulated=False):
     # else:
     raw_fname = data_path + '/MEG/sample/sample_audvis_raw.fif'
 
+    # Standard sample event IDs. These values will correspond to the third column
+    # in the events matrix.
+    event_id = {'auditory/left': 1, 'auditory/right': 2, 'visual/left': 3,
+                    'visual/right': 4, 'smiley': 5, 'button': 32}
+
     if simulated:
         info = mne.io.read_info(raw_fname)
         tstep = 1 / info['sfreq']
@@ -163,13 +168,8 @@ def load_data(condition, maxfilter=True, simulated=False):
         subjects_dir = data_path + '/subjects'
         events = mne.read_events(fname_event)
         noise_cov = mne.read_cov(fname_cov)
-        
-        events = events[:40]
 
-        # Standard sample event IDs. These values will correspond to the third column
-        # in the events matrix.
-        event_id = {'auditory/left': 1, 'auditory/right': 2, 'visual/left': 3,
-                    'visual/right': 4, 'smiley': 5, 'button': 32}
+        events = events[:40]
 
         activations = {
             'auditory/left':
@@ -253,7 +253,7 @@ def load_data(condition, maxfilter=True, simulated=False):
     reject = dict(grad=4000e-13, eog=350e-6)
     picks = mne.pick_types(raw.info, meg=True, eog=True)
 
-    event_id, tmin, tmax = 1, -1.0, 3.0
+    event_id, tmin, tmax = event_id[condition], -1.0, 3.0
     epochs = mne.Epochs(raw, events, event_id, tmin, tmax, picks=picks,
                         reject=reject, preload=True, baseline=(None, 0))
     # evoked = epochs.filter(1, None).average()
