@@ -1,4 +1,5 @@
-import functools, os
+import functools
+import os
 import joblib
 from pathlib import Path
 
@@ -57,7 +58,7 @@ def apply_solver(solver, evoked, forward, noise_cov, depth=0.9, loose=0.9,
     # Handle depth weighting and whitening (here is no weights)
     forward, gain, gain_info, whitener, source_weighting, _ = _prepare_gain(
         forward, evoked.info, noise_cov, pca=False, depth=depth,
-        loose=loose, weights=None, weights_min=None, rank=None) # info
+        loose=loose, weights=None, weights_min=None, rank=None)  # info
 
     # Select channels of interest
     sel = [all_ch_names.index(name) for name in gain_info['ch_names']]
@@ -136,52 +137,132 @@ def get_duality_gap_mtl(X, Y, coef, active_set, alpha, n_orient=1):
     return gap, p_obj, d_obj
 
 
-def load_data(condition, maxfilter=True):
+def load_data(condition, maxfilter=True, simulated=False):
     data_path = sample.data_path()
     fwd_fname = data_path + '/MEG/sample/sample_audvis-meg-eeg-oct-6-fwd.fif'
+    forward = mne.read_forward_solution(fwd_fname)
 
-    if not maxfilter:
-        ave_fname = data_path + '/MEG/sample/sample_audvis-ave.fif'
-        cov_fname = data_path + '/MEG/sample/sample_audvis-shrunk-cov.fif'
+    # if not maxfilter and simulated:
+    #     ave_fname = data_path + '/MEG/sample/sample_audvis-ave.fif'
+    #     cov_fname = data_path + '/MEG/sample/sample_audvis-shrunk-cov.fif'
 
-        noise_cov = mne.read_cov(cov_fname)
-        evoked = mne.read_evokeds(ave_fname, condition=condition,
-                                  baseline=(None, 0))
+    #     noise_cov = mne.read_cov(cov_fname)
+    #     evoked = mne.read_evokeds(ave_fname, condition=condition,
+    #                               baseline=(None, 0))
+    # else:
+    raw_fname = data_path + '/MEG/sample/sample_audvis_raw.fif'
+
+    if simulated:
+        info = mne.io.read_info(raw_fname)
+        tstep = 1 / info['sfreq']
+
+        src = forward['src']
+        fname_event = data_path + '/MEG/sample/sample_audvis_raw-eve.fif'
+        fname_cov = data_path + '/MEG/sample/sample_audvis-cov.fif'
+        subject = "sample"
+        subjects_dir = data_path + '/subjects'
+        events = mne.read_events(fname_event)
+        noise_cov = mne.read_cov(fname_cov)
+        
+        events = events[:40]
+
+        # Standard sample event IDs. These values will correspond to the third column
+        # in the events matrix.
+        event_id = {'auditory/left': 1, 'auditory/right': 2, 'visual/left': 3,
+                    'visual/right': 4, 'smiley': 5, 'button': 32}
+
+        activations = {
+            'auditory/left':
+                [('G_temp_sup-G_T_transv-lh', 30),          # label, activation (nAm)
+                ('G_temp_sup-G_T_transv-rh', 60)],
+            'auditory/right':
+                [('G_temp_sup-G_T_transv-lh', 60),
+                ('G_temp_sup-G_T_transv-rh', 30)],
+            'visual/left':
+                [('S_calcarine-lh', 30),
+                ('S_calcarine-rh', 60)],
+            'visual/right':
+                [('S_calcarine-lh', 60),
+                ('S_calcarine-rh', 30)],
+        }
+
+        annot = 'aparc.a2009s'
+
+        # Load the 4 necessary label names.
+        region_names = list(activations.keys())
+
+        def data_fun(times, latency, duration):
+            """Function to generate source time courses for evoked responses,
+            parametrized by latency and duration."""
+            f = 15  # oscillating frequency, beta band [Hz]
+            sigma = 0.375 * duration
+            sinusoid = np.sin(2 * np.pi * f * (times - latency))
+            gf = np.exp(- (times - latency - (sigma / 4.) * rng.rand(1)) ** 2 /
+                        (2 * (sigma ** 2)))
+            return 1e-9 * sinusoid * gf
+
+        times = np.arange(150, dtype=np.float64) / info['sfreq']
+        duration = 0.03
+        rng = np.random.RandomState(7)
+        source_simulator = mne.simulation.SourceSimulator(src, tstep=tstep)
+
+        for region_id, region_name in enumerate(region_names, 1):
+            events_tmp = events[np.where(events[:, 2] == region_id)[0], :]
+            for i in range(2):
+                label_name = activations[region_name][i][0]
+                label_tmp = mne.read_labels_from_annot(subject, annot,
+                                                        subjects_dir=subjects_dir,
+                                                        regexp=label_name,
+                                                        verbose=False)
+                label_tmp = label_tmp[0]
+                amplitude_tmp = activations[region_name][i][1]
+                if region_name.split('/')[1][0] == label_tmp.hemi[0]:
+                    latency_tmp = 0.115
+                else:
+                    latency_tmp = 0.1
+                wf_tmp = data_fun(times, latency_tmp, duration)
+                source_simulator.add_data(label_tmp,
+                                          amplitude_tmp * wf_tmp,
+                                          events_tmp)
+
+        raw = mne.simulation.simulate_raw(info, source_simulator, forward=forward)
+        raw.set_eeg_reference(projection=True)
+        mne.simulation.add_noise(raw, cov=noise_cov, random_state=0)
     else:
-        raw_fname = data_path + '/MEG/sample/sample_audvis_raw.fif'
-
         raw = mne.io.read_raw_fif(raw_fname, verbose=False)
 
+    if maxfilter:
         fine_cal_file = os.path.join(data_path, 'SSS', 'sss_cal_mgh.dat')
         crosstalk_file = os.path.join(data_path, 'SSS', 'ct_sparse_mgh.fif')
 
-        raw.info['bads'] = []
-        raw_check = raw.copy()
-        auto_noisy_chs, auto_flat_chs, _ = find_bad_channels_maxwell(
-        raw_check, cross_talk=crosstalk_file, calibration=fine_cal_file,
-        return_scores=True, verbose=False)
+        # raw.info['bads'] = []
+        # raw_check = raw.copy()
+        # auto_noisy_chs, auto_flat_chs, _ = find_bad_channels_maxwell(
+        #     raw_check, cross_talk=crosstalk_file, calibration=fine_cal_file,
+        #     return_scores=True, verbose=False
+        # )
 
-        bads = raw.info['bads'] + auto_noisy_chs + auto_flat_chs + ['MEG 2313']
-        raw.info['bads'] = bads
+        # bads = raw.info['bads'] + auto_noisy_chs + auto_flat_chs + ['MEG 2313']
+        # raw.info['bads'] = bads
 
-        raw_sss = mne.preprocessing.maxwell_filter(raw, cross_talk=crosstalk_file,
-                                                calibration=fine_cal_file,
-                                                verbose=False)
+        raw = mne.preprocessing.maxwell_filter(raw, cross_talk=crosstalk_file,
+                                               calibration=fine_cal_file,
+                                               verbose=False)
 
-        events = mne.find_events(raw_sss)
-        reject = dict(grad=4000e-13, eog=350e-6)
-        picks = mne.pick_types(raw_sss.info, meg=True, eog=True)
+    events = mne.find_events(raw)
+    reject = dict(grad=4000e-13, eog=350e-6)
+    picks = mne.pick_types(raw.info, meg=True, eog=True)
 
-        event_id, tmin, tmax = 1, -1.0, 3.0
-        epochs = mne.Epochs(raw_sss, events, event_id, tmin, tmax, picks=picks,
-                            reject=reject, preload=True)
-        evoked = epochs.filter(1, None).average()
+    event_id, tmin, tmax = 1, -1.0, 3.0
+    epochs = mne.Epochs(raw, events, event_id, tmin, tmax, picks=picks,
+                        reject=reject, preload=True, baseline=(None, 0))
+    # evoked = epochs.filter(1, None).average()
+    evoked = epochs.average()
 
-        noise_cov = mne.compute_covariance(epochs, rank="info", tmax=0.0)
+    noise_cov = mne.compute_covariance(epochs, rank="info", tmax=0.0)
 
     evoked = evoked.pick_types(meg=True)
     evoked.crop(tmin=0.05, tmax=0.15)  # Choose a timeframe not too large
-    forward = mne.read_forward_solution(fwd_fname)
     return evoked, forward, noise_cov
 
 
@@ -218,8 +299,6 @@ def load_somato_data():
 
 def load_data_from_camcan(folder_name, data_path, orient):
     data_path = Path(data_path)
-
-    subject_dir = data_path / "subjects"
 
     fwd_fname = data_path / "meg" / f"{folder_name}_task-passive-fwd.fif"
     ave_fname = data_path / "meg" / f"{folder_name}_task-passive-ave.fif"

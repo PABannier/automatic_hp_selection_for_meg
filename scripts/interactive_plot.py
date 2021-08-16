@@ -1,5 +1,7 @@
 import argparse, os, joblib
+import mne
 from mne.viz import plot_sparse_source_estimates
+from mne.datasets import somato, sample
 from hp_selection.utils import load_somato_data, load_data
 
 
@@ -12,11 +14,17 @@ parser.add_argument(
 parser.add_argument(
     "--condition",
     help="choice of condition. available: "
-    + "Left Auditory, Right Auditory, Left visual, Right visual, somato",
+    + "auditory/left, auditory/right, visual/left, visual/right, somato",
+)
+
+parser.add_argument(
+    "--simu",
+    help="use simulated data",
+    action='store_true',
 )
 
 args = parser.parse_args()
-CRITERION, CONDITION = args.criterion, args.condition
+CRITERION, CONDITION, simulated = args.criterion, args.condition, args.simu
 
 DATA_DIR = "../data/"
 
@@ -24,12 +32,22 @@ DATA_DIR = "../data/"
 if __name__ == "__main__":
     looose, depth = 0.9, 0.9
     if CONDITION == "somato":
-        evoked, forward, noise_cov = load_somato_data()
+        data_path = somato.data_path()
+        subject = "01"
+        task = "somato"
+        fwd_fname = os.path.join(data_path, "derivatives",
+                                "sub-{}".format(subject),
+                                "sub-{}_task-{}-fwd.fif".format(subject, task))
+        forward = mne.read_forward_solution(fwd_fname)
     else:
-        evoked, forward, noise_cov = load_data(CONDITION, maxfilter=False)
+        data_path = sample.data_path()
+        fwd_fname = data_path + '/MEG/sample/sample_audvis-meg-eeg-oct-6-fwd.fif'
+        forward = mne.read_forward_solution(fwd_fname)
 
-    fname = CONDITION.lower().replace(" ", "_") + ".pkl"
-    fpath = os.path.join(DATA_DIR, CRITERION, fname)
+    fname = CONDITION.lower().replace("/", "_")
+    # if simulated:
+    #     fname += "_simu"
+    fpath = os.path.join(DATA_DIR, CRITERION + "_simu", fname + ".pkl")
 
     stc = joblib.load(fpath)
     plot_sparse_source_estimates(forward["src"], stc, bgcolor=(1, 1, 1),

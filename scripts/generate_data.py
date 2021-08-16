@@ -1,7 +1,7 @@
 import os, joblib
 
-from hp_selection.sure import solve_using_sure
-from hp_selection.spatial_cv import solve_using_spatial_cv
+# from hp_selection.sure import solve_using_sure
+# from hp_selection.spatial_cv import solve_using_spatial_cv
 from hp_selection.temporal_cv import solve_using_temporal_cv
 from hp_selection.utils import apply_solver
 
@@ -17,7 +17,7 @@ def save_stc(stc, condition, solver):
     if not os.path.exists(out_dir):
         os.mkdir(out_dir)
 
-    fname = condition.lower().replace(" ", "_") + ".pkl"
+    fname = condition.lower().replace("/", "_") + ".pkl"
     out_path = os.path.join(out_dir, fname)
 
     with open(out_path, "wb") as out_file:
@@ -25,13 +25,21 @@ def save_stc(stc, condition, solver):
 
 
 if __name__ == "__main__":
-    CONDITIONS = ["Left Auditory"]
+    CONDITIONS = []
+    CONDITIONS += ['auditory/left']
+    # CONDITIONS += ['auditory/right']
+    # CONDITIONS += ['visual/left]
+    # CONDITIONS += ['visual/right']
+    # CONDITIONS += ['somato']
+    simulated = True
 
     for condition in CONDITIONS:
+        this_simulated = simulated
         if condition == "somato":
             evoked, forward, noise_cov = load_somato_data()
         else:
-            evoked, forward, noise_cov = load_data(condition, maxfilter=False)
+            evoked, forward, noise_cov = load_data(
+                condition, maxfilter=False, simulated=this_simulated)
 
         # SURE
         # stc = solve_using_sure(evoked, forward, noise_cov, loose=0)
@@ -43,5 +51,7 @@ if __name__ == "__main__":
 
         # Temporal CV
         stc = apply_solver(solve_using_temporal_cv, evoked, forward, noise_cov)
-        save_stc(stc, condition, "temporal_cv")
-
+        stc_name = "temporal_cv"
+        if this_simulated:
+            stc_name += "_simu"
+        save_stc(stc, condition, stc_name)
