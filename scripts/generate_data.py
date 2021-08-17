@@ -1,6 +1,6 @@
 import os, joblib
 
-# from hp_selection.sure import solve_using_sure
+from hp_selection.sure import solve_using_sure
 # from hp_selection.spatial_cv import solve_using_spatial_cv
 from hp_selection.temporal_cv import solve_using_temporal_cv
 from hp_selection.utils import apply_solver
@@ -31,9 +31,8 @@ if __name__ == "__main__":
     CONDITIONS += ['visual/left']
     CONDITIONS += ['visual/right']
     # CONDITIONS += ['somato']
-    # simulated = False
+
     simulated = True
-    # maxfilter = False
     maxfilter = True
 
     for condition in CONDITIONS:
@@ -43,9 +42,15 @@ if __name__ == "__main__":
             evoked, forward, noise_cov = load_data(
                 condition, maxfilter=maxfilter, simulated=simulated)
 
+        stc_name = "temporal_cv"
+        if condition != "somato" and simulated:
+            condition += "_simu"
+        if condition != "somato" and maxfilter:
+            condition += "_mf"
+
         # SURE
-        # stc = solve_using_sure(evoked, forward, noise_cov, loose=0)
-        # save_stc(stc, condition, "sure")
+        # stc = solve_using_sure(evoked, forward, noise_cov, loose=0.9)
+        # save_stc(stc, condition, stc_name)
 
         # Spatial CV
         # stc = apply_solver(solve_using_spatial_cv, evoked, forward, noise_cov)
@@ -53,9 +58,4 @@ if __name__ == "__main__":
 
         # Temporal CV
         stc = apply_solver(solve_using_temporal_cv, evoked, forward, noise_cov)
-        stc_name = "temporal_cv"
-        if condition != "somato" and simulated:
-            condition += "_simu"
-        if condition != "somato" and maxfilter:
-            condition += "_mf"
         save_stc(stc, condition, stc_name)

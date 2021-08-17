@@ -57,7 +57,7 @@ def apply_solver(solver, evoked, forward, noise_cov, depth=0.9, loose=0.9,
 
     # Handle depth weighting and whitening (here is no weights)
     forward, gain, gain_info, whitener, source_weighting, _ = _prepare_gain(
-        forward, evoked.info, noise_cov, pca=False, depth=depth,
+        forward, evoked.info, noise_cov, pca=True, depth=depth,
         loose=loose, weights=None, weights_min=None, rank=None)  # info
 
     # Select channels of interest
@@ -169,21 +169,21 @@ def load_data(condition, maxfilter=True, simulated=False):
         events = mne.read_events(fname_event)
         noise_cov = mne.read_cov(fname_cov)
 
-        events = events[:40]
+        events = events[:40] # 40
 
         activations = {
             'auditory/left':
-                [('G_temp_sup-G_T_transv-lh', 30),          # label, activation (nAm)
-                ('G_temp_sup-G_T_transv-rh', 60)],
-            'auditory/right':
-                [('G_temp_sup-G_T_transv-lh', 60),
+                [('G_temp_sup-G_T_transv-lh', 10),          # label, activation (nAm)
                 ('G_temp_sup-G_T_transv-rh', 30)],
+            'auditory/right':
+                [('G_temp_sup-G_T_transv-lh', 50),
+                ('G_temp_sup-G_T_transv-rh', 20)],
             'visual/left':
-                [('S_calcarine-lh', 30),
-                ('S_calcarine-rh', 60)],
+                [('S_calcarine-lh', 20),
+                ('S_calcarine-rh', 50)],
             'visual/right':
-                [('S_calcarine-lh', 60),
-                ('S_calcarine-rh', 30)],
+                [('S_calcarine-lh', 30),
+                ('S_calcarine-rh', 10)],
         }
 
         annot = 'aparc.a2009s'
@@ -263,6 +263,7 @@ def load_data(condition, maxfilter=True, simulated=False):
 
     evoked = evoked.pick_types(meg=True)
     evoked.crop(tmin=0.05, tmax=0.15)  # Choose a timeframe not too large
+
     return evoked, forward, noise_cov
 
 
