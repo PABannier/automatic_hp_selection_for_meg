@@ -1,133 +1,108 @@
 import numpy as np
-from numpy.linalg import norm
-from mne.inverse_sparse.mxne_optim import mixed_norm_solver
-from mne.inverse_sparse.mxne_debiasing import compute_bias
+from mne.inverse_sparse.mxne_optim import (mixed_norm_solver, 
+                                           iterative_mixed_norm_solver)
+from mne.inverse_sparse.mxne_inverse import (_prepare_gain, _make_sparse_stc,
+                                             is_fixed_orient, _log_exp_var,
+                                             _reapply_source_weighting)
 from hp_selection.utils import norm_l2_inf, groups_norm2
 
 
-def _weights(X, G, alpha, active_set, n_orient):
-    if np.shape(alpha):
-        # alpha = np.tile(alpha, [n_orient, 1]).ravel(order='F')
-        G_tilde = np.dot(G, np.diag(1. / alpha))
-        alpha_tilde = 1.
-        X_tilde = np.dot(np.diag(alpha[active_set]), X)
-    else:
-        G_tilde = G / alpha
-        alpha_tilde = 1.
-        X_tilde = X * alpha
-    return X_tilde, G_tilde, alpha_tilde
+def solve_using_lambda_map(evoked, forward, noise_cov, depth=0.9, loose=0.9,
+                           n_mxne_iter=5):
+    alpha_init = 1 # ???????
+    return mixed_norm_hyperparam(evoked, forward, noise_cov, alpha_init, 
+                                 depth=depth, loose=loose, 
+                                 n_mxne_iter=n_mxne_iter)
 
 
-def solve_using_gamma_map(G, M, n_orient, n_mxne_iter=5, hp_iter=9, a=1, b=1/3):
+def mixed_norm_hyperparam(evoked, forward, noise_cov, alpha, b=1/3, loose=0.9,
+                          depth=0.9, maxit=3000, tol=1e-4, active_set_size=10,
+                          debias=True, time_pca=True, weights=None,
+                          weights_min=0., solver='auto', n_mxne_iter=5,
+                          dgap_freq=10, rank=None, pick_ori=None, hp_iter=9,
+                          random_state=None, verbose=None):
     """
-    Solves the multi-task Lasso problem with a group l2,0.5 penalty with irMxNE.
-    Regularization hyperparameter selection is done using gamma-map techinque.
+    This function is almost identical to mixed_norm in MNE. The hyperparameter
+    selection process is different however. MNE implements a SURE-based approach
+    by choosing over a grid of possible candidates the alpha that minimizes the
+    SURE.
 
-    Bekhti et al found in their experiments for M/EEG data that b=1/3 gives
-    satisfying results. 
+    The goal of this function is to implement lambda map hyperparameter
+    selection presented by Bekhti et al.
+
+    Parameters
+    ----------
+
+    alpha: float
+        Initial value of alpha.
+
+    b: float, default = 1/3
+        Hyperparameter in the Gamma hyperprior. Bekhti et al. found that 1/3
+        yields decent results for MEG problems.
+
+    hp_iter: int, default = 9
+        Number of iterations for alpha computation.
     """
-    X, as_ = iterative_mixed_norm_solver_hyperparam(M, G, alpha, n_mxne_iter,
-                                                    hp_iter=hp_iter, a=a,
-                                                    b=b, n_orient=n_orient)[:1]
-    return X, as_
-                                                    
-
-def iterative_mixed_norm_solver_hyperparam(M, G, alpha, n_mxne_iter, hp_iter=9,
-                                           maxit=3000, tol=1e-8, verbose=None,
-                                           active_set_size=50, debias=True,
-                                           n_orient=1, solver='auto',
-                                           a=1., b=1., update_alpha=True):
-    def g(w):
+    def g(w, n_dip_per_pos):
         if n_mxne_iter == 1:
-            return np.sqrt(groups_norm2(w.copy(), n_orient))
+            return np.sqrt(groups_norm2(w.copy(), n_dip_per_pos))
         else:
-            return np.sqrt(np.sqrt(groups_norm2(w.copy(), n_orient)))
+            return np.sqrt(np.sqrt(groups_norm2(w.copy(), n_dip_per_pos)))
 
-    def gprime(w):
-        return 2. * np.repeat(g(w), n_orient).ravel()
+    pca = True
+    if not isinstance(evoked, list):
+        evoked = [evoked]
+
+    all_ch_names = evoked[0].ch_names
+    if not all(all_ch_names == evoked[i].ch_names
+               for i in range(1, len(evoked))):
+        raise Exception('All the datasets must have the same good channels.')
+
+    forward, gain, gain_info, whitener, source_weighting, mask = _prepare_gain(
+        forward, evoked[0].info, noise_cov, pca, depth, loose, rank,
+        weights, weights_min)
+
+    sel = [all_ch_names.index(name) for name in gain_info['ch_names']]
+    M = np.concatenate([e.data[sel] for e in evoked], axis=1)
+
+    # Whiten data
+    print('Whitening data matrix.')
+    M = np.dot(whitener, M)
+
+    if time_pca:
+        U, s, Vh = np.linalg.svd(M, full_matrices=False)
+        if not isinstance(time_pca, bool) and isinstance(time_pca, int):
+            U = U[:, :time_pca]
+            s = s[:time_pca]
+            Vh = Vh[:time_pca]
+        M = U * s
+
+    n_dip_per_pos = 1 if is_fixed_orient(forward) else 3
+    alpha_max = norm_l2_inf(np.dot(gain.T, M), n_dip_per_pos, copy=False)
+    mode = alpha_max / 2
+    a = mode * b + 1
+
     k = 1 if n_mxne_iter == 1 else 0.5
 
-    # Compute the parameter a of the Gamma distribution
-    alpha_max = norm_l2_inf(np.dot(G.T, M), n_orient, copy=False)
-    mode = alpha_max / 2.
-    a = mode * b + 1.
-
-    E = list()
-
     alphas = []
-    alphas.append(alpha.copy()) if np.shape(alpha) else alphas.append(alpha)
+    alphas.append(alpha)
 
     for i_hp in range(hp_iter):
-        active_set = np.ones(G.shape[1], dtype=np.bool)
-        weights = np.ones(G.shape[1])
-        X = np.zeros((G.shape[1], M.shape[1]))
-        for i_iter in range(n_mxne_iter):
-            X0 = X.copy()
-            active_set_0 = active_set.copy()
-            G_tmp = G[:, active_set] * weights[np.newaxis, :]
-            alpha_tmp = (alpha[active_set][::n_orient] if np.shape(alpha)
-                         else alpha)
-
-            if active_set_size is not None:
-                if np.sum(active_set) > (active_set_size * n_orient):
-                    X, _active_set, _ = mixed_norm_solver(
-                        M, G_tmp, alpha_tmp, debias=False, n_orient=n_orient,
-                        maxit=maxit, tol=tol, active_set_size=active_set_size,
-                        solver=solver, verbose=verbose)
-                else:
-                    X, _active_set, _ = mixed_norm_solver(
-                        M, G_tmp, alpha_tmp, debias=False, n_orient=n_orient,
-                        maxit=maxit, tol=tol, active_set_size=None,
-                        solver=solver, verbose=verbose)
-            else:
-                X, _active_set, _ = mixed_norm_solver(
-                    M, G_tmp, alpha_tmp, debias=False, n_orient=n_orient,
-                    maxit=maxit, tol=tol, active_set_size=None, solver=solver,
-                    verbose=verbose)
-
-            print('active set size %d' % (_active_set.sum() / n_orient))
-
-            if _active_set.sum() > 0:
-                active_set[active_set] = _active_set
-
-                # Reapply weights to have correct unit
-                X *= weights[_active_set][:, np.newaxis]
-                weights = gprime(X)
-                if np.shape(alpha):
-                    p_obj = \
-                        0.5 * norm(M - np.dot(G[:, active_set],  X), 'fro') \
-                        ** 2. + np.sum(alpha[active_set][::n_orient] * g(X))
-                else:
-                    p_obj = 0.5 * norm(M - np.dot(G[:, active_set],  X),
-                            'fro') ** 2. + alpha * np.sum(g(X))
-                E.append(p_obj)
-
-                # Check convergence
-                if ((i_iter >= 1) and np.all(active_set == active_set_0) and
-                        np.all(np.abs(X - X0) < tol)):
-                    print('Convergence reached after %d reweightings!' % i_iter)
-                    break
-            else:
-                active_set = np.zeros_like(active_set)
-                p_obj = 0.5 * norm(M) ** 2.
-                E.append(p_obj)
-                break
-
-        # Compute the parameter a of the Gamma distribution
-        # alpha_max = norm_l2_inf(np.dot(G_tmp.T, M), n_orient, copy=False)
-        # alpha_max *= 0.01
-        # alpha_max = 1.
-
-        if np.shape(alpha):
-            scale = np.shape(X)[1]
-            # gX = np.ones((active_set.shape)) * np.sum(g(X))
-            gX = (g(X) if (n_orient == 1) else
-                  np.tile(g(X), [n_orient, 1]).ravel(order='F'))
-            alpha[active_set] = (scale / k + a) / (gX + b)
+        if n_mxne_iter == 1:
+            X, active_set, _ = mixed_norm_solver(
+                M, gain, alpha, maxit=maxit, tol=tol,
+                active_set_size=active_set_size, n_orient=n_dip_per_pos,
+                debias=debias, solver=solver, dgap_freq=dgap_freq,
+                verbose=verbose)
         else:
-            scale = np.shape(X)[0] * np.shape(X)[1]
-            alpha = (scale / k + a) / (np.sum(g(X)) + np.shape(X)[1])
-            print('alpha: %s' % alpha)
+            X, active_set, _ = iterative_mixed_norm_solver(
+                M, gain, alpha, n_mxne_iter, maxit=maxit, tol=tol,
+                n_orient=n_dip_per_pos, active_set_size=active_set_size,
+                debias=debias, solver=solver, dgap_freq=dgap_freq,
+                verbose=verbose)
+
+        scale = np.shape(X)[0] * np.shape(X)[1]
+        alpha = (scale / k + a) / (np.sum(g(X, n_dip_per_pos)) + np.shape(X)[1])
         alphas.append(alpha)
 
         if abs(alphas[-2] - alphas[-1]).max() < 1e-2:
@@ -135,9 +110,44 @@ def iterative_mixed_norm_solver_hyperparam(M, G, alpha, n_mxne_iter, hp_iter=9,
                   '  %d iterations!' % i_hp)
             break
 
-    if np.any(active_set) and debias:
-        bias = compute_bias(M, G[:, active_set], X, n_orient=n_orient)
-        X *= bias[:, np.newaxis]
+    if time_pca:
+        X = np.dot(X, Vh)
+        M = np.dot(M, Vh)
 
-    alphas = np.array(alphas)[:, active_set] if np.shape(alpha) else alphas
-    return X, active_set, E, alphas
+    gain_active = gain[:, active_set]
+    if mask is not None:
+        active_set_tmp = np.zeros(len(mask), dtype=bool)
+        active_set_tmp[mask] = active_set
+        active_set = active_set_tmp
+        del active_set_tmp
+
+    if active_set.sum() == 0:
+        raise Exception("No active dipoles found. alpha is too big.")
+
+    # Reapply weights to have correct unit
+    X = _reapply_source_weighting(X, source_weighting, active_set)
+    source_weighting[source_weighting == 0] = 1  # zeros
+    gain_active /= source_weighting[active_set]
+    del source_weighting
+    M_estimate = np.dot(gain_active, X)
+
+    outs = list()
+    cnt = 0
+    for e in evoked:
+        tmin = e.times[0]
+        tstep = 1.0 / e.info['sfreq']
+        Xe = X[:, cnt:(cnt + len(e.times))]
+        out = _make_sparse_stc(Xe, active_set, forward, tmin, tstep,
+                               pick_ori=pick_ori)
+        outs.append(out)
+        cnt += len(e.times)
+
+    _log_exp_var(M, M_estimate, prefix='')
+
+    if len(outs) == 1:
+        out = outs[0]
+    else:
+        out = outs
+
+    return out
+

@@ -1,7 +1,8 @@
 import os, joblib
 
 from hp_selection.sure import solve_using_sure
-# from hp_selection.spatial_cv import solve_using_spatial_cv
+from hp_selection.spatial_cv import solve_using_spatial_cv
+from hp_selection.lambda_map import solve_using_lambda_map
 from hp_selection.temporal_cv import solve_using_temporal_cv
 from hp_selection.utils import apply_solver
 
@@ -42,7 +43,7 @@ if __name__ == "__main__":
             evoked, forward, noise_cov = load_data(
                 condition, maxfilter=maxfilter, simulated=simulated)
 
-        stc_name = "temporal_cv"
+        stc_name = "lambda_map"
         if condition != "somato" and simulated:
             condition += "_simu"
         if condition != "somato" and maxfilter:
@@ -57,5 +58,9 @@ if __name__ == "__main__":
         # save_stc(stc, condition, "spatial_cv")
 
         # Temporal CV
-        stc = apply_solver(solve_using_temporal_cv, evoked, forward, noise_cov)
+        # stc = apply_solver(solve_using_temporal_cv, evoked, forward, noise_cov)
+        # save_stc(stc, condition, stc_name)
+
+        # Lambda map
+        stc = solve_using_lambda_map(evoked, forward, noise_cov)
         save_stc(stc, condition, stc_name)
