@@ -1,5 +1,5 @@
 import numpy as np
-from mne.inverse_sparse.mxne_optim import (mixed_norm_solver, 
+from mne.inverse_sparse.mxne_optim import (mixed_norm_solver,
                                            iterative_mixed_norm_solver)
 from mne.inverse_sparse.mxne_inverse import (_prepare_gain, _make_sparse_stc,
                                              is_fixed_orient, _log_exp_var,
@@ -9,13 +9,12 @@ from hp_selection.utils import norm_l2_inf, groups_norm2
 
 def solve_using_lambda_map(evoked, forward, noise_cov, depth=0.9, loose=0.9,
                            n_mxne_iter=5):
-    alpha_init = 1 # ???????
-    return mixed_norm_hyperparam(evoked, forward, noise_cov, alpha_init, 
-                                 depth=depth, loose=loose, 
+    return mixed_norm_hyperparam(evoked, forward, noise_cov, depth=depth, 
+                                 loose=loose, tol=1e-2, maxit=1000,
                                  n_mxne_iter=n_mxne_iter)
 
 
-def mixed_norm_hyperparam(evoked, forward, noise_cov, alpha, b=1/3, loose=0.9,
+def mixed_norm_hyperparam(evoked, forward, noise_cov, b=1/3, loose=0.9,
                           depth=0.9, maxit=3000, tol=1e-4, active_set_size=10,
                           debias=True, time_pca=True, weights=None,
                           weights_min=0., solver='auto', n_mxne_iter=5,
@@ -84,10 +83,14 @@ def mixed_norm_hyperparam(evoked, forward, noise_cov, alpha, b=1/3, loose=0.9,
 
     k = 1 if n_mxne_iter == 1 else 0.5
 
+    # Initial value of alpha
+    alpha = alpha_max / 10
+
     alphas = []
     alphas.append(alpha)
 
     for i_hp in range(hp_iter):
+        print("[FITTING] Iteration %d :: alpha %.3f" % (i_hp, alpha))
         if n_mxne_iter == 1:
             X, active_set, _ = mixed_norm_solver(
                 M, gain, alpha, maxit=maxit, tol=tol,
@@ -101,13 +104,19 @@ def mixed_norm_hyperparam(evoked, forward, noise_cov, alpha, b=1/3, loose=0.9,
                 debias=debias, solver=solver, dgap_freq=dgap_freq,
                 verbose=verbose)
 
-        scale = np.shape(X)[0] * np.shape(X)[1]
-        alpha = (scale / k + a) / (np.sum(g(X, n_dip_per_pos)) + np.shape(X)[1])
+        alpha = (M.size / k + a - 1) / (np.sum(g(X, n_dip_per_pos)) + b) / 10
+        alpha = min(alpha, alpha_max * 0.99)  # Avoid alpha divergence
         alphas.append(alpha)
 
         if abs(alphas[-2] - alphas[-1]).max() < 1e-2:
             print('Hyperparameter estimated: Convergence reached after'
                   '  %d iterations!' % i_hp)
+            break
+        
+        if alpha == alpha_max * 0.99:
+            alpha = alphas[-2]
+            print("Prevent alpha from diverging after %d iterations!" % i_hp + 1)
+            print("Selected alpha: %.3f" % alpha)
             break
 
     if time_pca:
