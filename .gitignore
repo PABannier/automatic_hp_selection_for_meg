@@ -1,6 +1,8 @@
-.ipynb
+*.ipynb
+*.pkl
 .DS_Store
 /hp_selection.egg-info
 __pycache__
-data/camcan/
+data/
+figures/
 toy.py

@@ -1,3 +1,4 @@
+from hp_selection.lambda_map import solve_using_lambda_map
 from pathlib import Path
 import os
 from joblib import parallel_backend
@@ -82,18 +83,20 @@ EXISTING_PATIENTS = [
 ]
 
 def solve_camcan_inverse_problem(folder_name, data_path, criterion):
-    evoked, forward, noise_cov = load_data_from_camcan(folder_name, data_path, 
+    evoked, forward, noise_cov = load_data_from_camcan(folder_name, data_path,
                                                        "free")
-    
+
     if criterion == "sure":
         stc = solve_using_sure(evoked, forward, noise_cov, loose=0)
     elif criterion == "spatial_cv":
         stc = apply_solver(solve_using_spatial_cv, evoked, forward, noise_cov)
     elif criterion == "temporal_cv":
         stc = apply_solver(solve_using_temporal_cv, evoked, forward, noise_cov)
+    elif criterion == "lambda_map":
+        stc = apply_solver(solve_using_lambda_map, evoked, forward, noise_cov)
     else:
         raise Exception("Wrong criterion!")
-    
+
     return stc, evoked, forward, noise_cov
 
 

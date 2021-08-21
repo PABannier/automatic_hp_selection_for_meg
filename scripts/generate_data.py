@@ -62,5 +62,5 @@ if __name__ == "__main__":
         # save_stc(stc, condition, stc_name)
 
         # Lambda map
-        stc = solve_using_lambda_map(evoked, forward, noise_cov)
+        stc = apply_solver(solve_using_lambda_map, evoked, forward, noise_cov)
         save_stc(stc, condition, stc_name)
