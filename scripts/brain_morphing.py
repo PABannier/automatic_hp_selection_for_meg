@@ -1,8 +1,7 @@
-import joblib, os
+import joblib
+import os
 from tqdm import tqdm
 from pathlib import Path
-
-import matplotlib.pyplot as plt
 
 import mne
 from mne.viz import plot_sparse_source_estimates
@@ -15,8 +14,10 @@ def morph_stc(stcs, subject_ids, subject_dir):
                                      total=len(stcs)):
         try:
             morph = mne.compute_source_morph(stc, subject_from=subject_id,
-                                            subject_to="fsaverage", spacing=None,
-                                            sparse=True, subjects_dir=subject_dir)
+                                             subject_to="fsaverage",
+                                             spacing=None,
+                                             sparse=True,
+                                             subjects_dir=subject_dir)
             stc_fsaverage = morph.apply(stc)
         except FileNotFoundError:
             print(f"file not found for {subject_id}")
@@ -29,8 +30,10 @@ def morph_stc(stcs, subject_ids, subject_dir):
 if __name__ == "__main__":
     STC_PATH = Path("../data/camcan/stcs_tcv")
 
-    subjects_dir = "../data/camcan/subjects_dir/"
-    src_fsaverage_fname = subjects_dir + "fsaverage/bem/fsaverage-ico-5-src.fif"
+    # subjects_dir = "../data/camcan/subjects_dir/"
+    subjects_dir = "/storage/store/data/camcan-mne/freesurfer/"
+    src_fsaverage_fname = \
+        subjects_dir + "fsaverage/bem/fsaverage-ico-5-src.fif"
     src_fsaverage = mne.read_source_spaces(src_fsaverage_fname)
 
     stc_paths = os.listdir(STC_PATH)
@@ -39,13 +42,12 @@ if __name__ == "__main__":
     subject_ids = [x[4:] for x in subject_ids]
     stc_paths = [STC_PATH / Path(x) / "free.pkl" for x in stc_paths]
 
-    stcs = [joblib.load(x) for x in stc_paths]
+    stcs = [joblib.load(x)[0] for x in stc_paths]
     morphed_stcs = morph_stc(stcs, subject_ids, subjects_dir)
 
-    plot_sparse_source_estimates(src_fsaverage, morphed_stcs, bgcolor=(1, 1, 1),
-                                 fig_name="Merged brains", opacity=0.1)
+    joblib.dump(morphed_stcs, '../data/camcan/morphed_stc.pkl')
 
-
-
-
-
+    plot_sparse_source_estimates(
+        src_fsaverage, morphed_stcs, bgcolor=(1, 1, 1),
+        fig_name="Merged brains", opacity=0.1
+    )

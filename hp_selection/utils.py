@@ -314,9 +314,9 @@ def load_data_from_camcan(folder_name, data_path, orient):
     evokeds = mne.read_evokeds(ave_fname, condition=None, baseline=(None, 0))
     evoked = evokeds[-2]
 
-    if not os.path.exists(f"../data/camcan/evokeds/{folder_name}"):
-        os.mkdir(f"../data/camcan/evokeds/{folder_name}")
-    joblib.dump(evoked, f"../data/camcan/evokeds/{folder_name}/evoked_{orient}_full.pkl")
+    CAMCAN_DATA_PATH = Path(f"../data/camcan/evokeds/{folder_name}")
+    CAMCAN_DATA_PATH.mkdir(parents=True, exist_ok=True)
+    evoked.save(CAMCAN_DATA_PATH / f"{orient}_full-ave.fif")
 
     forward = mne.read_forward_solution(fwd_fname)
 

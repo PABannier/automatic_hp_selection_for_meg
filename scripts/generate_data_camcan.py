@@ -13,15 +13,18 @@ from hp_selection.temporal_cv import solve_using_temporal_cv
 from hp_selection.sure import solve_using_sure
 
 N_JOBS = 1  # -1
+N_JOBS = 30  # -1
 INNER_MAX_NUM_THREADS = 1
 
-DATA_PATH = Path(
-    "../../../rhochenb/Data/Cam-CAN/BIDS/derivatives/mne-study-template"
-)
+DERIVATIVES_PATH = Path("/storage/store2/work/rhochenb/Data/Cam-CAN/BIDS")
+DATA_PATH = DERIVATIVES_PATH / "derivatives/mne-study-template"
 
 PARTICIPANTS_INFO = Path(
-    "../../../../../store/data/camcan/BIDSsep/passive/participants.tsv"
+    "/storage/store/data/camcan/BIDSsep/passive/participants.tsv"
 )
+
+OUTPUT_DIR = Path("../data/camcan/stcs_tcv")
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 CRASHING_PATIENTS = [
     "sub-CC210250",
@@ -82,6 +85,7 @@ EXISTING_PATIENTS = [
     x for x in EXISTING_PATIENTS if x not in CRASHING_PATIENTS
 ]
 
+
 def solve_camcan_inverse_problem(folder_name, data_path, criterion):
     evoked, forward, noise_cov = load_data_from_camcan(folder_name, data_path,
                                                        "free")
@@ -100,19 +104,16 @@ def solve_camcan_inverse_problem(folder_name, data_path, criterion):
     return stc, evoked, forward, noise_cov
 
 
-def solve_for_patient(folder_path, criterion, loose=0.9):
+def solve_for_patient(folder_path, criterion):
     folder_name = folder_path.split("/")[-1]
     print(f"Solving #{folder_name}")
 
     patient_path = DATA_PATH / folder_name
     stc = solve_camcan_inverse_problem(folder_name, patient_path, criterion)
 
-    out_dir = f"../data/camcan/stcs_tcv/{folder_name}"
-    out_path_stc = out_dir + f"/free.pkl"
-
-    if not os.path.isdir(out_dir):
-        os.mkdir(out_dir)
-
+    out_dir = OUTPUT_DIR / f"{folder_name}"
+    out_path_stc = out_dir / "free.pkl"
+    out_dir.mkdir(exist_ok=True, parents=True)
     joblib.dump(stc, out_path_stc)
 
 
@@ -122,6 +123,8 @@ if __name__ == "__main__":
     participant_info_df = participant_info_df[participant_info_df["age"] < 30]
 
     patient_folders = list(participant_info_df["participant_id"])
+    # patient_folders = EXISTING_PATIENTS
+
     patient_folders = [DATA_PATH / x for x in patient_folders]
     patient_folders = [str(x) for x in patient_folders if os.path.isdir(x)]
 
