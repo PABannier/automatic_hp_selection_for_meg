@@ -12,9 +12,9 @@ from hp_selection.spatial_cv import solve_using_spatial_cv
 from hp_selection.temporal_cv import solve_using_temporal_cv
 from hp_selection.sure import solve_using_sure
 
-N_JOBS = 1  # -1
 N_JOBS = 30  # -1
 INNER_MAX_NUM_THREADS = 1
+CRITERION = "sure"  # Can be: sure, spatial_cv, temporal_cv, lambda_map
 
 DERIVATIVES_PATH = Path("/storage/store2/work/rhochenb/Data/Cam-CAN/BIDS")
 DATA_PATH = DERIVATIVES_PATH / "derivatives/mne-study-template"
@@ -23,7 +23,14 @@ PARTICIPANTS_INFO = Path(
     "/storage/store/data/camcan/BIDSsep/passive/participants.tsv"
 )
 
-OUTPUT_DIR = Path("../data/camcan/stcs_tcv")
+out_stc_dirs = {
+    "sure": "stcs",
+    "spatial_cv": "stcs_scv",
+    "temporal_cv": "stcs_tcv",
+    "lambda_map": "stcs_lmap"
+}
+
+OUTPUT_DIR = Path(f"../data/camcan/{out_stc_dirs[CRITERION]}")
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 CRASHING_PATIENTS = [
@@ -131,6 +138,6 @@ if __name__ == "__main__":
     # Select subjects
     with parallel_backend("loky", inner_max_num_threads=INNER_MAX_NUM_THREADS):
         Parallel(N_JOBS)(
-            delayed(solve_for_patient)(folder_name, "sure")
+            delayed(solve_for_patient)(folder_name, CRITERION)
             for folder_name in patient_folders
         )
