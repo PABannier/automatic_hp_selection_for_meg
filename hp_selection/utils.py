@@ -137,10 +137,13 @@ def get_duality_gap_mtl(X, Y, coef, active_set, alpha, n_orient=1):
     return gap, p_obj, d_obj
 
 
-def load_data(condition, maxfilter=True, simulated=False):
+def load_data(condition, maxfilter=True, simulated=False, amplitude=(200, 500),
+              return_stc=False, return_labels=False):
     data_path = sample.data_path()
     fwd_fname = data_path + '/MEG/sample/sample_audvis-meg-eeg-oct-6-fwd.fif'
     forward = mne.read_forward_solution(fwd_fname)
+
+    labels = []
 
     # if not maxfilter and simulated:
     #     ave_fname = data_path + '/MEG/sample/sample_audvis-ave.fif'
@@ -156,6 +159,8 @@ def load_data(condition, maxfilter=True, simulated=False):
     # in the events matrix.
     event_id = {'auditory/left': 1, 'auditory/right': 2, 'visual/left': 3,
                     'visual/right': 4, 'smiley': 5, 'button': 32}
+
+    stc = None
 
     if simulated:
         info = mne.io.read_info(raw_fname)
@@ -173,8 +178,8 @@ def load_data(condition, maxfilter=True, simulated=False):
 
         activations = {
             'auditory/left':
-                [('G_temp_sup-G_T_transv-lh', 10),          # label, activation (nAm)
-                ('G_temp_sup-G_T_transv-rh', 30)],
+                [('G_temp_sup-G_T_transv-lh', amplitude[0]),          # label, activation (nAm)
+                ('G_temp_sup-G_T_transv-rh', amplitude[1])],
             'auditory/right':
                 [('G_temp_sup-G_T_transv-lh', 50),
                 ('G_temp_sup-G_T_transv-rh', 20)],
@@ -195,7 +200,7 @@ def load_data(condition, maxfilter=True, simulated=False):
             """Function to generate source time courses for evoked responses,
             parametrized by latency and duration."""
             f = 15  # oscillating frequency, beta band [Hz]
-            sigma = 0.375 * duration
+            sigma = 0.5 * duration
             sinusoid = np.sin(2 * np.pi * f * (times - latency))
             gf = np.exp(- (times - latency - (sigma / 4.) * rng.rand(1)) ** 2 /
                         (2 * (sigma ** 2)))
@@ -207,14 +212,21 @@ def load_data(condition, maxfilter=True, simulated=False):
         source_simulator = mne.simulation.SourceSimulator(src, tstep=tstep)
 
         for region_id, region_name in enumerate(region_names, 1):
+            if region_name != condition:
+                continue
             events_tmp = events[np.where(events[:, 2] == region_id)[0], :]
             for i in range(2):
                 label_name = activations[region_name][i][0]
                 label_tmp = mne.read_labels_from_annot(subject, annot,
                                                         subjects_dir=subjects_dir,
                                                         regexp=label_name,
-                                                        verbose=False)
-                label_tmp = label_tmp[0]
+                                                        verbose=False)[0]
+                label_tmp.vertices = np.intersect1d(label_tmp.vertices,
+                                                    src[i]["vertno"])
+                label_tmp.values = np.ones(len(label_tmp.vertices))  # Hacky but works
+                label_tmp = mne.label.select_sources(subject, label_tmp,
+                                                     subjects_dir=subjects_dir)
+                labels.append(label_tmp)
                 amplitude_tmp = activations[region_name][i][1]
                 if region_name.split('/')[1][0] == label_tmp.hemi[0]:
                     latency_tmp = 0.115
@@ -228,6 +240,8 @@ def load_data(condition, maxfilter=True, simulated=False):
         raw = mne.simulation.simulate_raw(info, source_simulator, forward=forward)
         raw.set_eeg_reference(projection=True)
         mne.simulation.add_noise(raw, cov=noise_cov, random_state=0)
+
+        stc = source_simulator.get_stc()
     else:
         raw = mne.io.read_raw_fif(raw_fname, verbose=False)
 
@@ -261,9 +275,13 @@ def load_data(condition, maxfilter=True, simulated=False):
 
     noise_cov = mne.compute_covariance(epochs, rank="info", tmax=0.0)
 
-    evoked = evoked.pick_types(meg=True)
+    evoked = evoked.pick_types(meg=True, eeg=False)
     evoked.crop(tmin=0.05, tmax=0.15)  # Choose a timeframe not too large
 
+    if return_stc and simulated:
+        if return_labels:
+            return evoked, forward, noise_cov, stc, labels
+        return evoked, forward, noise_cov, stc
     return evoked, forward, noise_cov
 
 

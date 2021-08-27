@@ -47,6 +47,4 @@ def solve_using_lambda_map(G, M, n_orient, b=1, hp_iter=10, n_mxne_iter=5,
     as_ = np.linalg.norm(estimator.coef_, axis=-1) != 0
     X_ = estimator.coef_[as_]
 
-    import ipdb; ipdb.set_trace()
-
     return X_, as_
