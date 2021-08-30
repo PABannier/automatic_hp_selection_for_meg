@@ -357,14 +357,14 @@ def compute_forward(data_path, info, resolution=3):
     path_fwd = data_path + \
         '/MEG/sample/sample_audvis-meg-eeg-oct-%i-fwd.fif' % resolution
     if not os.path.isfile(path_fwd):
-        fwd = compute_forward_(data_path, info, resolution)
+        fwd = _compute_forward(data_path, info, resolution)
         mne.write_forward_solution(path_fwd, fwd, overwrite=True)
     else:
         fwd = mne.read_forward_solution(path_fwd)
     return fwd
 
 
-def compute_forward_(data_path, info, resolution=3):
+def _compute_forward(data_path, info, resolution=3):
     if resolution == 6:
         path_fwd = data_path + \
             '/MEG/sample/sample_audvis-meg-eeg-oct-6-fwd.fif'
