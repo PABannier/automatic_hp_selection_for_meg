@@ -140,12 +140,14 @@ def get_duality_gap_mtl(X, Y, coef, active_set, alpha, n_orient=1):
 def load_data(condition, maxfilter=True, simulated=False, amplitude=(200, 500),
               return_stc=False, return_labels=False, resolution=3):
     data_path = sample.data_path()
+    raw_fname = data_path + '/MEG/sample/sample_audvis_raw.fif'
 
     if resolution == 6:
         fwd_fname = data_path + '/MEG/sample/sample_audvis-meg-eeg-oct-6-fwd.fif'
         forward = mne.read_forward_solution(fwd_fname)
     else:
-        forward = compute_forward(data_path, None, resolution=resolution)
+        info = mne.io.read_info(raw_fname)
+        forward = compute_forward(data_path, info, resolution=resolution)
 
     labels = []
 
@@ -157,7 +159,6 @@ def load_data(condition, maxfilter=True, simulated=False, amplitude=(200, 500),
     #     evoked = mne.read_evokeds(ave_fname, condition=condition,
     #                               baseline=(None, 0))
     # else:
-    raw_fname = data_path + '/MEG/sample/sample_audvis_raw.fif'
 
     # Standard sample event IDs. These values will correspond to the third column
     # in the events matrix.
