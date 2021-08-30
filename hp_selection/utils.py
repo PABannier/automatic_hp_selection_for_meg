@@ -138,10 +138,16 @@ def get_duality_gap_mtl(X, Y, coef, active_set, alpha, n_orient=1):
 
 
 def load_data(condition, maxfilter=True, simulated=False, amplitude=(200, 500),
-              return_stc=False, return_labels=False):
+              return_stc=False, return_labels=False, resolution=3):
     data_path = sample.data_path()
-    fwd_fname = data_path + '/MEG/sample/sample_audvis-meg-eeg-oct-6-fwd.fif'
-    forward = mne.read_forward_solution(fwd_fname)
+    raw_fname = data_path + '/MEG/sample/sample_audvis_raw.fif'
+
+    if resolution == 6:
+        fwd_fname = data_path + '/MEG/sample/sample_audvis-meg-eeg-oct-6-fwd.fif'
+        forward = mne.read_forward_solution(fwd_fname)
+    else:
+        info = mne.io.read_info(raw_fname)
+        forward = compute_forward(data_path, info, resolution=resolution)
 
     labels = []
 
@@ -153,7 +159,6 @@ def load_data(condition, maxfilter=True, simulated=False, amplitude=(200, 500),
     #     evoked = mne.read_evokeds(ave_fname, condition=condition,
     #                               baseline=(None, 0))
     # else:
-    raw_fname = data_path + '/MEG/sample/sample_audvis_raw.fif'
 
     # Standard sample event IDs. These values will correspond to the third column
     # in the events matrix.
@@ -342,3 +347,48 @@ def load_data_from_camcan(folder_name, data_path, orient):
     evoked = evoked.pick_types(eeg=False, meg=True)
 
     return evoked, forward, noise_cov
+
+
+# ================================================
+# ================ LOW RESOLUTION ================
+# ================================================
+
+def compute_forward(data_path, info, resolution=3):
+    path_fwd = data_path + \
+        '/MEG/sample/sample_audvis-meg-eeg-oct-%i-fwd.fif' % resolution
+    if not os.path.isfile(path_fwd):
+        fwd = _compute_forward(data_path, info, resolution)
+        mne.write_forward_solution(path_fwd, fwd, overwrite=True)
+    else:
+        fwd = mne.read_forward_solution(path_fwd)
+    return fwd
+
+
+def _compute_forward(data_path, info, resolution=3):
+    if resolution == 6:
+        path_fwd = data_path + \
+            '/MEG/sample/sample_audvis-meg-eeg-oct-6-fwd.fif'
+        fwd = mne.read_forward_solution(path_fwd)
+        return fwd
+    # if not os.path.isfile(path_fwd):
+    #     fwd = compute_forward(data_path, raw.info, resolution)
+    #     mne.write_forward_solution(path_fwd, fwd, overwrite=True)
+    # else:
+    spacing = "ico%d" % resolution
+    src_fs = mne.setup_source_space(
+        subject='sample',
+        spacing=spacing,
+        subjects_dir=data_path+"/subjects",
+        add_dist=False)
+    bem_fname = data_path + \
+        "/subjects/sample/bem/sample-5120-5120-5120-bem-sol.fif"
+    bem = mne.read_bem_solution(bem_fname)
+
+    fwd = mne.make_forward_solution(
+        info, trans=data_path + "/MEG/sample/sample_audvis_raw-trans.fif",
+        src=src_fs, bem=bem, meg=True, eeg=True, mindist=2.,
+        n_jobs=2)
+    path_fwd = data_path + '/MEG/sample/sample_audvis-meg-eeg-oct-%i-fwd.fif' \
+        % resolution
+    mne.write_forward_solution(path_fwd, fwd, overwrite=True)
+    return fwd
