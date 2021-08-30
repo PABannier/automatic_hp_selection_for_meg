@@ -17,8 +17,8 @@ from hp_selection.utils import load_data
 
 CONDITION = "auditory/left"
 AMPLITUDES = [(30, 30), (120, 120), (180, 180)]
-SOLVERS = ["temporal_cv", "spatial_cv", "lambda_map", "sure"]
-COLORS = ["cyan", "skyblue", "orange", "green"]
+# SOLVERS = ["temporal_cv", "spatial_cv", "lambda_map", "sure"]
+SOLVERS = ["lambda_map"]
 
 DEPTH = 0.99
 
@@ -100,11 +100,12 @@ if __name__ == "__main__":
 
             MCM = multilabel_confusion_matrix(support_ext_bin,
                                               normalized_score != 0)
-            tp_sum = MCM[:, 1, 1]
-            fp_sum = MCM[:, 0, 1]
+            tp_sum = MCM[:, 1, 1].copy().sum()  # copy()
+            fp_sum = MCM[:, 0, 1].copy().sum()  # copy()
 
             result_tmp[solver] = (fp_sum, tp_sum)
-            RESULTS.append(result_tmp)
+
+        RESULTS.append(result_tmp)
 
     #         axes[i].scatter(fp_sum, tp_sum, c=COLORS[j], label=SOLVERS[j])
     #     axes[i].set_xlabel(r"$\delta$-FP")

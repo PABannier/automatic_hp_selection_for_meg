@@ -16,7 +16,7 @@ if __name__ == "__main__":
     for i, amplitude in enumerate(AMPLITUDES):
         for j, solver in enumerate(SOLVERS):
             (fp_sum, tp_sum) = results[i][solver]
-            fp_sum, tp_sum = fp_sum.sum(), tp_sum.sum()
+            fp_sum, tp_sum = fp_sum, tp_sum
             print(fp_sum)
             print(tp_sum)
             axes[i].scatter(fp_sum, tp_sum, c=COLORS[j], label=SOLVERS[j])
