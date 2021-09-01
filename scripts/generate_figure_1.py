@@ -3,25 +3,26 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from sklearn.metrics import recall_score, precision_score
-# from scipy.stats import wasserstein_distance
+from scipy.stats import wasserstein_distance
 
 import mne
-# from mne.viz import plot_sparse_source_estimates
 
 from hp_selection.sure import solve_using_sure
 from hp_selection.spatial_cv import solve_using_spatial_cv
 from hp_selection.lambda_map import solve_using_lambda_map
 from hp_selection.temporal_cv import solve_using_temporal_cv
-from hp_selection.utils import apply_solver
-
-from hp_selection.utils import load_data
+from hp_selection.utils import apply_solver, load_data
 
 CONDITION = "auditory/left"
+RESOLUTION = 3
+EXTENT = 20
 # AMPLITUDE_RANGE = [(30 + 25 * i, 30 + 25 * j) for i, j in
 #                    zip(range(0, 10), range(0, 10))]
 
-AMPLITUDE_RANGE = [(120, 120)]
-# SOLVERS = ["temporal_cv", "spatial_cv", "lambda_map", "sure"]
+# AMPLITUDE_RANGE = [(10, 30), (20, 50), (50, 70), (80, 100)]
+AMPLITUDE_RANGE = [(50, 70)]
+MAXFILTER = False
+SIMULATED = True
 SOLVERS = ["spatial_cv"]
 
 def delta_f1_score(stc, true_stc, forward, subject, labels, extent,
@@ -37,10 +38,10 @@ def delta_f1_score(stc, true_stc, forward, subject, labels, extent,
     stc.expand(vertices)
     true_stc.expand(vertices)
 
-    estimated_activations = np.abs(stc.data).sum(axis=-1)
+    est_activations = np.abs(stc.data).sum(axis=-1)
     true_activations = np.abs(true_stc.data).sum(axis=-1)
 
-    estimated_as = estimated_activations != 0
+    estimated_as = est_activations != 0
     true_as = true_activations != 0
 
     map_hemis = {"lh": 0, "rh": 1}
@@ -74,40 +75,34 @@ def delta_f1_score(stc, true_stc, forward, subject, labels, extent,
                                       zero_division=0)
     recall = recall_score(true_as, estimated_as, zero_division=0)
 
-    if delta_precision == 0 and recall == 0:
-        return 0, delta_precision, recall
-    f1 = 2 * (delta_precision * recall) / (delta_precision + recall)
+    emd = wasserstein_distance(est_activations, true_activations)
 
-    return f1, delta_precision, recall
+    if delta_precision == 0 and recall == 0:
+        return 0, delta_precision, recall, emd
+    f1 = 2 * (delta_precision * recall) / (delta_precision + recall)
+    return f1, delta_precision, recall, emd
 
 
 if __name__ == "__main__":
-    simulated = True
-    maxfilter = True
-
-    precis = 1e-3
-    n_points = int(1 / precis) + 1
-    recall = np.linspace(1.0, 0.0, n_points)
-    dict_precision = {}
-    dict_delta_precision = {}
-
-    extent = 20
-
     subject = "sample"
     subjects_dir = mne.datasets.sample.data_path() + '/subjects'
 
-    fig, (ax1, ax2, ax3) = plt.subplots(3, 1, sharex=True, sharey=True)
+    fig, (ax1, ax2, ax3, ax4) = plt.subplots(4, 1, sharex=True, sharey=True)
 
     for solver in SOLVERS:
         f1_scores = list()
         delta_precision_scores = list()
         recall_scores = list()
+        emd_scores = list()
 
         for amplitude in AMPLITUDE_RANGE:
-            evoked, forward, noise_cov, true_stc, labels = load_data(
-                CONDITION, maxfilter=maxfilter, simulated=simulated,
-                amplitude=amplitude, return_stc=True, return_labels=True, 
-                resolution=6)
+            out = load_data(CONDITION, maxfilter=MAXFILTER, simulated=SIMULATED,
+                            amplitude=amplitude, return_stc=True,
+                            return_labels=True, resolution=RESOLUTION)
+            if SIMULATED:
+                evoked, forward, noise_cov, true_stc, labels = out
+            else:
+                evoked, forward, noise_cov = out
 
             if solver == "sure":
                 stc = solve_using_sure(evoked, forward, noise_cov, depth=0.99)
@@ -123,23 +118,28 @@ if __name__ == "__main__":
             else:
                 raise ValueError("Unknown solver!")
 
-            f1, delta_precision, recall = delta_f1_score(stc, true_stc, forward,
-                subject, labels, extent, subjects_dir)
+            if SIMULATED:
+                f1, delta_precision, recall, emd = delta_f1_score(stc, true_stc,
+                    forward, subject, labels, EXTENT, subjects_dir)
 
-            delta_precision_scores.append(delta_precision)
-            recall_scores.append(recall)
-            f1_scores.append(f1)
+                delta_precision_scores.append(delta_precision)
+                recall_scores.append(recall)
+                f1_scores.append(f1)
+                emd_scores.append(emd)
 
-        amplitudes = [x[0] for x in AMPLITUDE_RANGE]
-        ax1.plot(amplitudes, delta_precision_scores, label=solver)
-        ax2.plot(amplitudes, recall_scores, label=solver)
-        ax3.plot(amplitudes, f1_scores, label=solver)
+        if SIMULATED:
+            amplitudes = [x[0] for x in AMPLITUDE_RANGE]
+            ax1.plot(amplitudes, delta_precision_scores, label=solver)
+            ax2.plot(amplitudes, recall_scores, label=solver)
+            ax3.plot(amplitudes, f1_scores, label=solver)
+            ax4.plot(amplitudes, emd_scores, label=solver)
 
-    plt.suptitle(r"Simulated - Source amplitude vs $\delta$-F1 score")
-    ax3.set_xlabel("Source amplitude (nAm)")
-    ax1.set_ylabel(r"$\delta$-precision")
-    ax2.set_ylabel("recall")
-    ax3.set_ylabel(r"$\delta$-F1")
+    if SIMULATED:
+        plt.suptitle(r"Simulated - Source amplitude vs $\delta$-F1 score")
+        ax3.set_xlabel("Source amplitude (nAm)")
+        ax1.set_ylabel(r"$\delta$-precision")
+        ax2.set_ylabel("recall")
+        ax3.set_ylabel(r"$\delta$-F1")
 
-    plt.legend()
-    plt.show()
+        plt.legend()
+        plt.show()
