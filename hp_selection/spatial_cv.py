@@ -59,11 +59,8 @@ class ReweightedMultiTaskLassoCV(BaseEstimator, RegressorMixin):
         self.best_estimator_ = None
         self.best_cv_, self.best_alpha_ = np.inf, None
 
-        self.mse_path_ = np.zeros((len(alpha_grid), n_folds))
-        self.f1_path_ = np.zeros((len(alpha_grid), n_folds))
-        self.jaccard_path_ = np.zeros((len(alpha_grid), n_folds))
-
         self.n_alphas = len(self.alpha_grid)
+        self.mse_path_ = np.full((self.n_alphas, n_folds), np.inf)
 
         if penalty:
             self.penalty = penalty
@@ -76,7 +73,7 @@ class ReweightedMultiTaskLassoCV(BaseEstimator, RegressorMixin):
     def coef_(self):
         return self.best_estimator_.coef_
 
-    def fit(self, X, Y, coef_true=None):
+    def fit(self, X, Y):
         """Fits the cross-validation error estimator
         on X and Y.
 
@@ -87,10 +84,6 @@ class ReweightedMultiTaskLassoCV(BaseEstimator, RegressorMixin):
 
         Y : np.ndarray of shape (n_samples, n_tasks)
             Target matrix.
-
-        coef_true : np.ndarray of shape (n_features, n_tasks)
-            Coefficient matrix. To compute f1_score and jaccard_score paths,
-            it needs to be specified.
         """
         X, Y = check_X_y(X, Y, multi_output=True)
 
@@ -105,7 +98,7 @@ class ReweightedMultiTaskLassoCV(BaseEstimator, RegressorMixin):
             X_valid, Y_valid = X[val_idx, :], Y[val_idx, :]
 
             coefs_ = self._fit_reweighted_with_grid(X_train, Y_train, X_valid,
-                                                    Y_valid, coef_true, i)
+                                                    Y_valid, i)
             predictions_ = [X_valid @ coefs_[j] for j in range(self.n_alphas)]
 
             for i in range(len(Y_oofs_)):
@@ -122,7 +115,7 @@ class ReweightedMultiTaskLassoCV(BaseEstimator, RegressorMixin):
         print(f"Best alpha: {self.best_alpha_}")
 
     def _fit_reweighted_with_grid(self, X_train, Y_train, X_valid, Y_valid,
-                                  coef_true, idx_fold):
+                                  idx_fold):
         n_features, n_tasks = X_train.shape[1], Y_train.shape[1]
         coef_0 = np.empty((self.n_alphas, n_features, n_tasks))
 
@@ -154,15 +147,6 @@ class ReweightedMultiTaskLassoCV(BaseEstimator, RegressorMixin):
                     self.mse_path_[j, idx_fold] = mean_squared_error(
                         Y_valid, X_valid @ coefs[j]
                     )
-
-                    if coef_true is not None:
-                        self.f1_path_[j, idx_fold] = f1_score(
-                            coef_true != 0, coefs[j] != 0, average="macro"
-                        )
-
-                        self.jaccard_path_[j, idx_fold] = jaccard_score(
-                            coef_true != 0, coefs[j] != 0, average="macro"
-                        )
 
         return coefs
 
@@ -204,6 +188,8 @@ def solve_using_spatial_cv(G, M, n_orient, n_mxne_iter=5, grid_length=15, K=5,
                                            n_orient=n_orient)
     criterion.fit(G, M)
     rescaled_best_alpha = criterion.best_alpha_
+
+    import ipdb; ipdb.set_trace()
 
     # Refitting
     best_X, best_as = solve_irmxne_problem(G, M, rescaled_best_alpha, n_orient,

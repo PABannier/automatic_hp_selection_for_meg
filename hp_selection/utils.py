@@ -138,7 +138,7 @@ def get_duality_gap_mtl(X, Y, coef, active_set, alpha, n_orient=1):
 
 
 def load_data(condition, maxfilter=True, simulated=False, amplitude=(200, 500),
-              return_stc=False, return_labels=False, resolution=3):
+              return_stc=False, return_labels=False, resolution=6):
     data_path = sample.data_path()
     raw_fname = data_path + '/MEG/sample/sample_audvis_raw.fif'
 
@@ -150,21 +150,8 @@ def load_data(condition, maxfilter=True, simulated=False, amplitude=(200, 500),
         forward = compute_forward(data_path, info, resolution=resolution)
 
     labels = []
-
-    # if not maxfilter and simulated:
-    #     ave_fname = data_path + '/MEG/sample/sample_audvis-ave.fif'
-    #     cov_fname = data_path + '/MEG/sample/sample_audvis-shrunk-cov.fif'
-
-    #     noise_cov = mne.read_cov(cov_fname)
-    #     evoked = mne.read_evokeds(ave_fname, condition=condition,
-    #                               baseline=(None, 0))
-    # else:
-
-    # Standard sample event IDs. These values will correspond to the third column
-    # in the events matrix.
     event_id = {'auditory/left': 1, 'auditory/right': 2, 'visual/left': 3,
                     'visual/right': 4, 'smiley': 5, 'button': 32}
-
     stc = None
 
     if simulated:
@@ -179,7 +166,7 @@ def load_data(condition, maxfilter=True, simulated=False, amplitude=(200, 500),
         events = mne.read_events(fname_event)
         noise_cov = mne.read_cov(fname_cov)
 
-        events = events[:40] # 40
+        events = events[:40]
 
         activations = {
             'auditory/left':
@@ -204,11 +191,15 @@ def load_data(condition, maxfilter=True, simulated=False, amplitude=(200, 500),
         def data_fun(times, latency, duration):
             """Function to generate source time courses for evoked responses,
             parametrized by latency and duration."""
-            f = 15  # oscillating frequency, beta band [Hz]
-            sigma = 0.5 * duration
-            sinusoid = np.sin(2 * np.pi * f * (times - latency))
-            gf = np.exp(- (times - latency - (sigma / 4.) * rng.rand(1)) ** 2 /
+            f = 10  # oscillating frequency, beta band [Hz]
+            sigma = 0.375 * duration
+            sinusoid = np.cos(2 * np.pi * f * (times - latency))
+            # gf = np.exp(- (times - latency - (sigma / 4.) * rng.rand(1)) ** 2 /
+            #             (2 * (sigma ** 2)))
+            gf = np.exp(- (times - latency - (sigma / 4.)) ** 2 /
                         (2 * (sigma ** 2)))
+            gf = 1
+            
             return 1e-9 * sinusoid * gf
 
         times = np.arange(150, dtype=np.float64) / info['sfreq']
@@ -254,16 +245,6 @@ def load_data(condition, maxfilter=True, simulated=False, amplitude=(200, 500),
         fine_cal_file = os.path.join(data_path, 'SSS', 'sss_cal_mgh.dat')
         crosstalk_file = os.path.join(data_path, 'SSS', 'ct_sparse_mgh.fif')
 
-        # raw.info['bads'] = []
-        # raw_check = raw.copy()
-        # auto_noisy_chs, auto_flat_chs, _ = find_bad_channels_maxwell(
-        #     raw_check, cross_talk=crosstalk_file, calibration=fine_cal_file,
-        #     return_scores=True, verbose=False
-        # )
-
-        # bads = raw.info['bads'] + auto_noisy_chs + auto_flat_chs + ['MEG 2313']
-        # raw.info['bads'] = bads
-
         raw = mne.preprocessing.maxwell_filter(raw, cross_talk=crosstalk_file,
                                                calibration=fine_cal_file,
                                                verbose=False)
@@ -275,13 +256,11 @@ def load_data(condition, maxfilter=True, simulated=False, amplitude=(200, 500),
     event_id, tmin, tmax = event_id[condition], -1.0, 3.0
     epochs = mne.Epochs(raw, events, event_id, tmin, tmax, picks=picks,
                         reject=reject, preload=True, baseline=(None, 0))
-    # evoked = epochs.filter(1, None).average()
     evoked = epochs.average()
-
     noise_cov = mne.compute_covariance(epochs, rank="info", tmax=0.0)
 
     evoked = evoked.pick_types(meg=True, eeg=False)
-    evoked.crop(tmin=0.05, tmax=0.15)  # Choose a timeframe not too large
+    evoked.crop(tmin=0.05, tmax=0.15)
 
     if return_stc and simulated:
         if return_labels:

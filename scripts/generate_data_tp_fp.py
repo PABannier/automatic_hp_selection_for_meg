@@ -16,9 +16,10 @@ from hp_selection.utils import apply_solver
 from hp_selection.utils import load_data
 
 CONDITION = "auditory/left"
-AMPLITUDES = [(30, 30), (120, 120), (180, 180)]
+# AMPLITUDES = [(30, 30), (120, 120), (180, 180)]
+AMPLITUDES = [(180, 180)]
 # SOLVERS = ["temporal_cv", "spatial_cv", "lambda_map", "sure"]
-SOLVERS = ["lambda_map"]
+SOLVERS = ["temporal_cv"]
 
 DEPTH = 0.99
 
@@ -67,9 +68,8 @@ if __name__ == "__main__":
             estimated_active_set = np.abs(stc.data).sum(axis=-1)
             true_active_set = np.abs(true_stc.data).sum(axis=-1)
 
-            # Compute delta-precision
             support_bin = true_active_set != 0
-            normalized_score = estimated_active_set
+            estimated_support_bin = estimated_active_set != 0
 
             map_hemis = {"lh": 0, "rh": 1}
 
@@ -82,14 +82,14 @@ if __name__ == "__main__":
                 subjects_dir=subjects_dir)[0].vertices
 
             ext_vertices_lh = np.intersect1d(ext_vertices_lh,
-                                             forward["src"][0]["vertno"])
+                                            forward["src"][0]["vertno"])
             ext_vertices_rh = np.intersect1d(ext_vertices_rh,
-                                             forward["src"][1]["vertno"])
+                                            forward["src"][1]["vertno"])
 
             ext_indices_lh = np.searchsorted(forward["src"][0]["vertno"],
-                                             ext_vertices_lh)
+                                                ext_vertices_lh)
             ext_indices_rh = np.searchsorted(forward["src"][1]["vertno"],
-                                             ext_vertices_rh)
+                                                ext_vertices_rh)
 
             ext_pred_lh = np.zeros(len(forward["src"][0]["vertno"]), dtype=int)
             ext_pred_lh[ext_indices_lh] = 1
@@ -98,24 +98,16 @@ if __name__ == "__main__":
 
             support_ext_bin = np.concatenate((ext_pred_lh, ext_pred_rh))
 
-            MCM = multilabel_confusion_matrix(support_ext_bin,
-                                              normalized_score != 0)
-            tp_sum = MCM[:, 1, 1].copy().sum()  # copy()
-            fp_sum = MCM[:, 0, 1].copy().sum()  # copy()
+            # MCM = multilabel_confusion_matrix(support_ext_bin,
+            #                                   estimated_support_bin)
+
+            MCM = multilabel_confusion_matrix(support_bin, estimated_support_bin)
+            tp_sum = MCM[:, 1, 1].sum()
+            fp_sum = MCM[:, 0, 1].sum()
 
             result_tmp[solver] = (fp_sum, tp_sum)
 
-        RESULTS.append(result_tmp)
-
-    #         axes[i].scatter(fp_sum, tp_sum, c=COLORS[j], label=SOLVERS[j])
-    #     axes[i].set_xlabel(r"$\delta$-FP")
-    #     axes[i].set_ylabel(r"$\delta$-TP")
-    #     axes[i].set_title("Amplitude: %s nAm" % amplitude[0])
-    #     axes[i].legend()
-
-    # plt.suptitle("FP - TP in low/medium/high SNR regime")
-    # plt.tight_layout()
-    # plt.show()
+        RESULTS.append(result_tmp.copy())
 
     with open("../data/tp_fp_results.pkl", "wb") as outfile:
         joblib.dump(RESULTS, outfile)
