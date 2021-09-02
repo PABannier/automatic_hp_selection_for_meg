@@ -173,14 +173,14 @@ def load_data(condition, maxfilter=True, simulated=False, amplitude=(200, 500),
                 [('G_temp_sup-G_T_transv-lh', amplitude[0]),          # label, activation (nAm)
                 ('G_temp_sup-G_T_transv-rh', amplitude[1])],
             'auditory/right':
-                [('G_temp_sup-G_T_transv-lh', 50),
-                ('G_temp_sup-G_T_transv-rh', 20)],
+                [('G_temp_sup-G_T_transv-lh', amplitude[0]),
+                ('G_temp_sup-G_T_transv-rh', amplitude[1])],
             'visual/left':
-                [('S_calcarine-lh', 20),
-                ('S_calcarine-rh', 50)],
+                [('S_calcarine-lh', amplitude[0]),
+                ('S_calcarine-rh', amplitude[1])],
             'visual/right':
-                [('S_calcarine-lh', 30),
-                ('S_calcarine-rh', 10)],
+                [('S_calcarine-lh', amplitude[0]),
+                ('S_calcarine-rh', amplitude[1])],
         }
 
         annot = 'aparc.a2009s'
