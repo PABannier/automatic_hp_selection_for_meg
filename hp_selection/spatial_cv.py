@@ -147,6 +147,9 @@ class ReweightedMultiTaskLassoCV(BaseEstimator, RegressorMixin):
                     self.mse_path_[j, idx_fold] = mean_squared_error(
                         Y_valid, X_valid @ coefs[j]
                     )
+                else:
+                    self.mse_path_[j, idx_fold] = mean_squared_error(
+                        Y_valid, np.zeros_like(Y_valid))
 
         return coefs
 
@@ -173,8 +176,8 @@ class ReweightedMultiTaskLassoCV(BaseEstimator, RegressorMixin):
         return self.best_estimator_.predict(X)
 
 
-def solve_using_spatial_cv(G, M, n_orient, n_mxne_iter=5, grid_length=15, K=2,
-                           random_state=1):
+def solve_using_spatial_cv(G, M, n_orient, n_mxne_iter=5, grid_length=14, K=5,
+                           random_state=0):
     """
     Solves the multi-task Lasso problem with a group l2,0.5 penalty with
     irMxNE. Regularization hyperparameter selection is done using (spatial) CV.
@@ -187,9 +190,10 @@ def solve_using_spatial_cv(G, M, n_orient, n_mxne_iter=5, grid_length=15, K=2,
                                            random_state=random_state,
                                            n_orient=n_orient)
     criterion.fit(G, M)
-    rescaled_best_alpha = criterion.best_alpha_
+    import ipdb; ipdb.set_trace()
+    best_alpha = criterion.best_alpha_
 
     # Refitting
-    best_X, best_as = solve_irmxne_problem(G, M, rescaled_best_alpha, n_orient,
+    best_X, best_as = solve_irmxne_problem(G, M, best_alpha, n_orient,
                                            n_mxne_iter=n_mxne_iter)
     return best_X, best_as
