@@ -62,14 +62,14 @@ def get_fwd_and_cov(
         data_path=sample.data_path()):
     ##########################################################################
     # Load real data as templates
-    print("Loading data..............................................................")
+    print("Loading data.....................................................")
     raw = mne.io.read_raw_fif(
         data_path + '/MEG/sample/sample_audvis_raw.fif', preload=True)
     raw.info['bads'] = bads  # mark bad channels
     cov_fname = data_path + '/MEG/sample/sample_audvis-cov.fif'
     cov = mne.read_cov(cov_fname)
     raw.drop_channels(ch_names=raw.info['bads'])
-    ################################################################################
+    ###########################################################################
     # import to resize foreward
     path_fwd = data_path + \
         '/MEG/sample/sample_audvis-meg-eeg-oct-%i-fwd.fif' % resolution
@@ -143,8 +143,8 @@ def get_semi_real_data(
 
     def data_fun_int(times):
         """Function to generate random source time courses"""
-        return amplitude * np.sin((1 + 3 * rng.randn(1) / 2.) * np.pi *
-                                  times / times.max())
+        return amplitude * np.sin(
+            (1 + 3 * rng.randn(1) / 2.) * np.pi * times / times.max())
 
     stc = simulate_sparse_stc(
         fwd['src'], n_dipoles=n_dipoles, times=times,
@@ -167,251 +167,9 @@ def get_semi_real_data(
     return X, fwd, cov
 
 
-
-
 def get_B_from_supp_and_dense(mask, dense):
     n_sources = mask.shape[0]
     n_times = dense.shape[1]
     B = np.zeros((n_sources, n_times))
     B[mask, :] = dense
     return B
-
-
-def get_my_whitener(cov_data, info=None, ch_names=None, rank=None,
-                  pca=False, scalings=None, prepared=False):
-    n_chan = cov_data.shape[0]
-    eig, eigvecs, _ = _smart_eigh(
-        cov_data, info, None, None, info["projs"], ch_names)
-
-    nzero = (eig > 0)
-    eig[~nzero] = 0.  # get rid of numerical noise (negative) ones
-    n_nzero = np.sum(nzero)
-
-    whitener = np.zeros((n_chan, 1), dtype=np.float)
-    whitener[nzero, 0] = 1.0 / np.sqrt(eig[nzero])
-    #   Rows of eigvec are the eigenvectors
-    whitener = whitener * eigvecs  # C ** -0.5
-    colorer = np.sqrt(eig) * eigvecs.T  # C ** 0.5
-    return whitener, colorer, cov_data, n_nzero
-
-
-def rescale_forward(X):
-    X_init = X.copy()
-
-    X = X.copy()
-
-    log_abs_X = np.log(np.abs(X))
-
-    # rescaling of each line
-    colorer0 = norm(X, axis=1)
-    X /= colorer0[:, np.newaxis]
-
-    log_norm_X_axis1 = compute_log_norm_axis1(X_init, axis=1)
-    log_abs_X -= log_norm_X_axis1[:, np.newaxis]
-
-    source_weighting = norm(X, axis=0, ord=2)
-    X /= source_weighting
-
-    log_norm_X_axis_0 = compute_log_norm_axis0(log_abs_X, axis=0)
-    log_abs_X -= log_norm_X_axis_0[np.newaxis, :]
-
-    X = np.exp(log_abs_X) * np.sign(X_init)
-    return X
-
-
-def rescale_cov_data(X, cov_data):
-    X_init = X.copy()
-    cov_data_init = cov_data.copy()
-    X = X.copy()
-    cov_data = cov_data.copy()
-
-    log_abs_X = np.log(np.abs(X))
-    log_abs_cov_data = np.log(np.abs(cov_data))
-
-    colorer0 = norm(X, axis=1)
-    cov_data /= np.outer(colorer0, colorer0)
-
-    log_norm_X_axis1 = compute_log_norm_axis1(X_init, axis=1)
-    log_abs_cov_data -= log_norm_X_axis1[:, np.newaxis]
-    log_abs_cov_data -= log_norm_X_axis1[np.newaxis, :]
-
-    # assert np.allclose( np.exp(log_abs_cov_data * np.sign(cov_data_init)), cov_data)
-
-    cov_data = np.exp(log_abs_cov_data) * np.sign(cov_data_init)
-    return cov_data
-
-
-def source_weight(X, B_star):
-    X_init = X.copy()
-    B_star_init = B_star.copy()
-
-    X = X.copy()
-    B_star = B_star.copy()
-
-    log_abs_X = np.log(np.abs(X))
-    log_abs_B_star = np.log(np.abs(B_star))
-
-    # source weighting
-    source_weighting = norm(X, axis=0, ord=2)
-    X /= source_weighting
-    B_star *= source_weighting[:, np.newaxis]
-    colorer_source_weight = 1 / source_weighting
-
-    log_norm_X_axis_0 = compute_log_norm_axis0(log_abs_X, axis=0)
-    log_abs_X -= log_norm_X_axis_0[np.newaxis, :]
-    log_abs_B_star += log_norm_X_axis_0[:, np.newaxis]
-
-    assert np.allclose( np.exp(log_abs_X) * np.sign(X_init), X)
-    assert np.allclose( np.exp(log_abs_B_star) * np.sign(B_star_init), B_star)
-
-    X =  np.exp(log_abs_X) * np.sign(X_init)
-    B_star = np.exp(log_abs_B_star) * np.sign(B_star_init)
-    return X, B_star, colorer_source_weight
-
-
-def rescale_X_all_epochs_and_B_star(
-    X, all_epochs, B_star, cov_data, rescale_lines=True, source_weight=True):
-
-    X_init = X.copy()
-    all_epochs_init = all_epochs.copy()
-    B_star_init = B_star.copy()
-    cov_data_init = cov_data.copy()
-
-    X = X.copy()
-    all_epochs = all_epochs.copy()
-    cov_data = cov_data.copy()
-    B_star = B_star.copy()
-
-    log_abs_X = np.log(np.abs(X))
-    log_abs_all_epochs = np.log(np.abs(all_epochs))
-    log_abs_cov_data = np.log(np.abs(cov_data))
-    log_abs_B_star = np.log(np.abs(B_star))
-
-    if rescale_lines:
-        # rescaling of each line
-        colorer0 = norm(X, axis=1)
-        X /= colorer0[:, np.newaxis]
-        all_epochs /= colorer0[np.newaxis, :, np.newaxis]
-        cov_data /= np.outer(colorer0, colorer0)
-
-        log_norm_X_axis1 = compute_log_norm_axis1(X_init, axis=1)
-        log_abs_X -= log_norm_X_axis1[:, np.newaxis]
-        log_abs_all_epochs -= log_norm_X_axis1[np.newaxis, :, np.newaxis]
-        log_abs_cov_data -= log_norm_X_axis1[:, np.newaxis]
-        log_abs_cov_data -= log_norm_X_axis1[np.newaxis, :]
-
-        assert np.allclose(np.exp(log_abs_X) * np.sign(X_init), X)
-        assert np.allclose(np.exp(log_abs_all_epochs) * np.sign(all_epochs_init), all_epochs)
-        # assert np.allclose( np.exp(log_abs_cov_data * np.sign(cov_data_init)), cov_data )
-
-    if source_weight:
-        # source weighting
-        source_weighting = norm(X, axis=0, ord=2)
-        X /= source_weighting
-        B_star *= source_weighting[:, np.newaxis]
-        colorer_source_weight = 1 / source_weighting
-
-        log_norm_X_axis_0 = compute_log_norm_axis0(log_abs_X, axis=0)
-        log_abs_X -= log_norm_X_axis_0[np.newaxis, :]
-        log_abs_B_star += log_norm_X_axis_0[:, np.newaxis]
-
-        assert np.allclose( np.exp(log_abs_X) * np.sign(X_init), X)
-        assert np.allclose( np.exp(log_abs_B_star) * np.sign(B_star_init), B_star)
-        assert np.allclose( np.exp(log_abs_cov_data) * np.sign(cov_data_init), cov_data)
-
-
-    Y = all_epochs.mean(axis=0)
-    # normalize Y = all_epochs.mean() to 1
-    scaling_factor = norm(Y, ord='fro')
-    # scaling_factor = np.abs(all_epochs.mean(axis=0)).max()
-    all_epochs /= scaling_factor
-    colorer0 *= scaling_factor
-    B_star /= scaling_factor
-    colorer_source_weight *= scaling_factor
-    cov_data /= scaling_factor ** 2
-
-    log_norm_Y = compute_log_norm( Y )
-    # log_norm_Y = compute_log_norm( ((np.exp(log_abs_all_epochs) * np.sign(all_epochs_init)).mean(axis=0)) )
-    log_abs_all_epochs -= log_norm_Y
-    log_abs_B_star -= log_norm_Y
-    log_abs_cov_data -= 2 * log_norm_Y
-
-    assert np.allclose(colorer0[:, np.newaxis] * X / colorer_source_weight, X_init)
-    assert np.allclose(colorer0[np.newaxis, :, np.newaxis] * all_epochs, all_epochs_init)
-    # assert np.allclose(cov_data * np.outer(colorer0, colorer0), cov_data_init)
-    assert np.allclose(B_star * colorer_source_weight[:, np.newaxis], B_star_init)
-
-    assert np.allclose( np.exp(log_abs_X) * np.sign(X_init), X)
-    # assert np.allclose( np.exp(log_abs_B_star) * np.sign(B_star_init), B_star)
-    # assert np.allclose( np.exp(log_abs_all_epochs) * np.sign(all_epochs_init), all_epochs)
-    assert np.allclose( np.exp(log_abs_cov_data) * np.sign(cov_data_init), cov_data)
-    if True:
-        all_epochs = np.exp(log_abs_all_epochs) * np.sign(all_epochs_init)
-        cov_data = np.exp(log_abs_cov_data) * np.sign(cov_data_init)
-        X =  np.exp(log_abs_X) * np.sign(X_init)
-    return X, all_epochs, B_star, cov_data, (colorer0, colorer_source_weight)
-
-
-def compute_log_norm_axis1(X, axis=1):
-    abs_X = np.abs(X)
-    max_abs_X = np.max(X, axis=axis)
-    if axis == 1:
-        abs_X = abs_X / max_abs_X[:, np.newaxis]
-    else:
-        abs_X = abs_X / max_abs_X[np.newaxis, :]
-    log_norm = np.log(max_abs_X) + np.log(norm(abs_X, axis=axis))
-    return log_norm
-
-def compute_log_norm_axis0(log_abs_X, axis=0):
-    max_log_abs_X = np.max(log_abs_X, axis=axis)
-
-    log_abs_X = log_abs_X - max_log_abs_X[np.newaxis, :]
-    abs_X = np.exp(log_abs_X)
-
-    log_norm = max_log_abs_X + np.log(norm(abs_X, axis=axis))
-    return log_norm
-
-def compute_log_norm(X):
-    log_abs_X = np.log(np.abs(X))
-    max_log_abs_X = np.max(log_abs_X)
-
-    log_abs_X = log_abs_X - max_log_abs_X
-    abs_X = np.exp(log_abs_X)
-
-    log_norm = max_log_abs_X + np.log(norm(abs_X, ord='fro'))
-    return log_norm
-
-def simulate_real_B_star(fwd, meeg_ch_names, n_dipoles=3, n_times=100, n_epochs=50, seed=0):
-    X = fwd['sol']['data']
-    _, n_sources = X.shape
-    n_meg_sensors = get_n_meg_numbers(meeg_ch_names)
-    rng = check_random_state(seed)
-
-    B_star = np.zeros([n_sources, n_times])
-    supp = rng.choice(n_sources, n_dipoles, replace=False)
-    for index in supp:
-        is_meg_ch = index <= n_meg_sensors
-        B_star[index, :] = data_fun(n_times, rng, is_meg_ch=is_meg_ch)
-    return B_star
-
-def data_fun(n_times, rng, is_meg_ch=True):
-    """Function to generate random source time courses"""
-    arr_times = np.arange(n_times)
-    line = ( np.cos(30. * (arr_times - arr_times[n_times //2 ]) ) *
-            np.exp(- (arr_times - arr_times[n_times //2 ]) ** 2 * 0.1))
-    if is_meg_ch:
-        return line / norm(line) * 500e-9
-    else:
-        return line / norm(line) * 20e-6
-
-def get_n_meg_numbers(ch_names):
-    n_meg_sensors = 0
-    for ch_name in ch_names:
-        if ch_name.startswith('MEG'):
-            n_meg_sensors += 1
-    return n_meg_sensors
-
-def drop_bad_ch_cov(cov_data, ch_names, bads):
-    idx = [ii for ii, ch in enumerate(ch_names) if ch not in bads]
-    cov_data = cov_data[idx][:, idx]
-    return cov_data
