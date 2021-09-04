@@ -190,7 +190,6 @@ def solve_using_spatial_cv(G, M, n_orient, n_mxne_iter=5, grid_length=14, K=5,
                                            random_state=random_state,
                                            n_orient=n_orient)
     criterion.fit(G, M)
-    import ipdb; ipdb.set_trace()
     best_alpha = criterion.best_alpha_
 
     # Refitting

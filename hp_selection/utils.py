@@ -259,6 +259,8 @@ def load_data(condition, maxfilter=True, simulated=False, amplitude=(200, 500),
     evoked = epochs.average()
     noise_cov = mne.compute_covariance(epochs, rank="info", tmax=0.0)
 
+    # noise_cov = mne.compute_raw_covariance(raw, tmin=tmin, tmax=tmax, picks=picks)
+
     evoked = evoked.pick_types(meg=True, eeg=False)
     evoked.crop(tmin=0.05, tmax=0.15)
 
