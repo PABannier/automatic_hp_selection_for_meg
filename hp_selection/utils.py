@@ -253,13 +253,11 @@ def load_data(condition, maxfilter=True, simulated=False, amplitude=(200, 500),
     reject = dict(grad=4000e-13, eog=350e-6)
     picks = mne.pick_types(raw.info, meg=True, eog=True)
 
-    event_id, tmin, tmax = event_id[condition], -1.0, 3.0
+    event_id, tmin, tmax = event_id[condition], -0.2, 0.5
     epochs = mne.Epochs(raw, events, event_id, tmin, tmax, picks=picks,
                         reject=reject, preload=True, baseline=(None, 0))
     evoked = epochs.average()
     noise_cov = mne.compute_covariance(epochs, rank="info", tmax=0.0)
-
-    # noise_cov = mne.compute_raw_covariance(raw, tmin=tmin, tmax=tmax, picks=picks)
 
     evoked = evoked.pick_types(meg=True, eeg=False)
     evoked.crop(tmin=0.05, tmax=0.15)

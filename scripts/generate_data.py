@@ -3,13 +3,12 @@ import os, joblib
 from hp_selection.sure import solve_using_sure
 from hp_selection.spatial_cv import solve_using_spatial_cv
 from hp_selection.lambda_map import solve_using_lambda_map
-from hp_selection.temporal_cv import solve_using_temporal_cv
 from hp_selection.utils import apply_solver
 
 from hp_selection.utils import load_data, load_somato_data
 
-CONDITIONS = ["Left Auditory", "Right Auditory", "Left visual",
-              "Right visual", "somato"]
+CONDITIONS = ["auditory/left", "auditory/right", "visual/left",
+              "visual/right", "somato"]
 
 
 def save_stc(stc, condition, solver):
@@ -26,15 +25,8 @@ def save_stc(stc, condition, solver):
 
 
 if __name__ == "__main__":
-    CONDITIONS = []
-    CONDITIONS += ['auditory/left']
-    CONDITIONS += ['auditory/right']
-    CONDITIONS += ['visual/left']
-    CONDITIONS += ['visual/right']
-    # CONDITIONS += ['somato']
-
-    simulated = True
-    maxfilter = True
+    simulated = False
+    maxfilter = False
 
     for condition in CONDITIONS:
         if condition == "somato":
@@ -49,18 +41,14 @@ if __name__ == "__main__":
         if condition != "somato" and maxfilter:
             condition += "_mf"
 
-        # SURE
-        # stc = solve_using_sure(evoked, forward, noise_cov, loose=0.9)
-        # save_stc(stc, condition, stc_name)
+        stc = solve_using_sure(evoked, forward, noise_cov, loose=0.9, depth=0.9)
+        save_stc(stc, condition, stc_name)
 
-        # Spatial CV
-        # stc = apply_solver(solve_using_spatial_cv, evoked, forward, noise_cov)
-        # save_stc(stc, condition, "spatial_cv")
-
-        # Temporal CV
-        # stc = apply_solver(solve_using_temporal_cv, evoked, forward, noise_cov)
-        # save_stc(stc, condition, stc_name)
+        stc = apply_solver(solve_using_spatial_cv, evoked, forward, noise_cov,
+                           depth=0.9, loose=0.9)
+        save_stc(stc, condition, "spatial_cv")
 
         # Lambda map
-        stc = apply_solver(solve_using_lambda_map, evoked, forward, noise_cov)
+        stc = apply_solver(solve_using_lambda_map, evoked, forward, noise_cov,
+                           depth=0.9, loose=0.9)
         save_stc(stc, condition, stc_name)

@@ -1,4 +1,5 @@
 import argparse
+from scripts.plot_brain_morphing import HEMISPHERES
 import joblib
 import os.path as op
 
@@ -6,18 +7,6 @@ from numba import njit
 import matplotlib.pyplot as plt
 
 import mne
-
-
-plt.rcParams.update(
-    {
-        "ytick.labelsize": "small",
-        "xtick.labelsize": "small",
-        "axes.labelsize": "small",
-        "axes.titlesize": "medium",
-        "grid.color": "0.75",
-        "grid.linestyle": ":",
-    }
-)
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
@@ -28,13 +17,14 @@ parser.add_argument(
 parser.add_argument(
     "--condition",
     help="choice of condition. available: "
-    + "Left Auditory, Right Auditory, Left visual, Right visual",
+    + "auditory/left, auditory/right, visual/left, visual/right",
 )
 
 args = parser.parse_args()
 
 CRITERION = args.criterion
 CONDITION = args.condition
+HEMISPHERES = ["lh", "rh"]
 
 
 def add_foci_to_brain_surface(brain, stc, ax):
@@ -65,6 +55,7 @@ def add_margin(nonwhite_col, margin=5):
 
 
 if __name__ == "__main__":
+    mne.viz.set_3d_backend('pyvistaqt')
     data_path = mne.datasets.sample.data_path()
     subjects_dir = op.join(data_path, "subjects")
     fname_evoked = op.join(data_path, "MEG", "sample", "sample_audvis-ave.fif")
@@ -88,9 +79,9 @@ if __name__ == "__main__":
 
     # Plot the STC, get the brain image, crop it:
     brain = stc.plot(
-        views=["lat", "med"],
-        hemi="split",
-        size=(1000, 500),
+        views=["med"],
+        hemi="split" if len(HEMISPHERES) > 1 else HEMISPHERES[0],
+        size=(500, 250),
         subjects_dir=subjects_dir,
         background="w",
         clim="auto",
@@ -113,32 +104,7 @@ if __name__ == "__main__":
 
     add_foci_to_brain_surface(brain, stc, axes[1])
 
-    screenshot = brain.screenshot()
-    brain.close()
-
-    nonwhite_pix = (screenshot != 255).any(-1)
-    nonwhite_row = nonwhite_pix.any(1)
-    nonwhite_col = nonwhite_pix.any(0)
-
-    # Add blank columns for margin
-    nonwhite_col = add_margin(nonwhite_col)
-    cropped_screenshot = screenshot[nonwhite_row][:, nonwhite_col]
-
-    # Save brain in standalone fashion
-    plt.imsave("output.png", cropped_screenshot)
-
-    # Assemble with current activation plot
-    evoked_idx = 1
-    brain_idx = 0
-
-    axes[brain_idx].imshow(cropped_screenshot)
-    axes[brain_idx].axis("off")
-
-    # tweak margins and spacing
-    fig.subplots_adjust(left=0.15, right=0.9, bottom=0.15, top=0.9, wspace=0.1,
-                        hspace=0.2)
-
-    out_fname = CONDITION.lower().replace(" ", "_") + "_" + CRITERION + ".svg"
+    out_fname = CONDITION.lower().replace(" ", "_") + "_" + CRITERION + "_brain.pdf"
     fig_dir = op.join("../figures", out_fname)
 
-    fig.savefig(fig_dir)
+    brain.save_image(fig_dir)

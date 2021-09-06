@@ -11,7 +11,7 @@ def solve_using_temporal_cv(G, M, n_orient, n_mxne_iter=5, grid_length=15, K=5,
     CV.
     """
     alpha_max = compute_alpha_max(G, M, n_orient)
-    grid = np.geomspace(alpha_max, alpha_max * 0.1, grid_length)
+    grid = np.linspace(alpha_max, alpha_max * 0.1, grid_length)
     # Sigma = 1 because data are already pre-whitened
     criterion = LLForReweightedMTL(1, grid, n_orient=n_orient,
                                    random_state=random_state)

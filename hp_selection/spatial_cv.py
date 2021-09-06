@@ -183,7 +183,7 @@ def solve_using_spatial_cv(G, M, n_orient, n_mxne_iter=5, grid_length=14, K=5,
     irMxNE. Regularization hyperparameter selection is done using (spatial) CV.
     """
     alpha_max = compute_alpha_max(G, M, n_orient)
-    grid = np.geomspace(alpha_max, alpha_max * 0.1, grid_length)
+    grid = np.linspace(alpha_max, alpha_max * 0.1, grid_length)
 
     criterion = ReweightedMultiTaskLassoCV(grid, n_folds=K,
                                            n_iterations=n_mxne_iter,
