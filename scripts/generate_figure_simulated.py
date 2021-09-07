@@ -14,12 +14,19 @@ configure_plt()
 label_mapping = {
     "lambda_map": r"$\lambda$-MAP",
     "spatial_cv": "Spatial CV",
-    "sure": "SURE"
-}
+    "sure": "SURE"}
 
-fontsize = 18
+dict_markers = {}
+dict_markers["lambda_map"] = "o"
+dict_markers["spatial_cv"] = "v"
+dict_markers["sure"] = "s"
+
+
+fontsize = 23
 fontsize2 = 15
-lw = 1
+lw = 3
+markersize = 15
+# savefig = False
 savefig = True
 
 mpl.rcParams["xtick.labelsize"] = fontsize
@@ -37,31 +44,39 @@ print(full_df.groupby(by="solver")["duration"].mean())
 
 print("=" * 30)
 
-fig, axarr = plt.subplots(1, 3, sharey="row", figsize=(14, 2))
+metric_names = ["recall", "delta_precision", "delta_f1_score"]
+fig, axarr = plt.subplots(1, len(metric_names), sharey="row", figsize=(14, 2))
 
 for idx_solver, solver in enumerate(["lambda_map", "spatial_cv", "sure"]):
     df_solver = full_df[full_df["solver"] == solver]
     solver_label = label_mapping[solver]
 
-    axarr[0].plot(df_solver["amplitude"], df_solver["recall"],
-                  color=dict_colors[idx_solver], label=solver_label, lw=lw)
-    axarr[1].plot(df_solver["amplitude"], df_solver["delta_precision"],
-                  color=dict_colors[idx_solver], label=solver_label, lw=lw)
-    axarr[2].plot(df_solver["amplitude"], df_solver["delta_f1_score"],
-                  color=dict_colors[idx_solver], label=solver_label, lw=lw)
+    for idx_metric, metric_name in enumerate(metric_names):
+        n_elements = len(df_solver[metric_name])
+        n_markers = n_elements // 3
+        markevery = [3 * i + idx_solver for i in np.arange(n_markers)]
+        axarr[idx_metric].plot(
+            df_solver["amplitude"], df_solver[metric_name],
+            color=dict_colors[idx_solver], label=solver_label, lw=lw,
+            marker=dict_markers[solver], markevery=markevery,
+            markersize=markersize)
+    # axarr[1].plot(df_solver["amplitude"], df_solver["delta_precision"],
+    #               color=dict_colors[idx_solver], label=solver_label, lw=lw)
+    # axarr[2].plot(df_solver["amplitude"], df_solver["delta_f1_score"],
+    #               color=dict_colors[idx_solver], label=solver_label, lw=lw)
 
-axarr[0].set_xlabel("Source amplitude (nAm)", fontsize=fontsize2)
-axarr[1].set_xlabel("Source amplitude (nAm)", fontsize=fontsize2)
-axarr[2].set_xlabel("Source amplitude (nAm)", fontsize=fontsize2)
+axarr[0].set_xlabel("Source amplitude (nAm)", fontsize=fontsize)
+axarr[1].set_xlabel("Source amplitude (nAm)", fontsize=fontsize)
+axarr[2].set_xlabel("Source amplitude (nAm)", fontsize=fontsize)
 
-axarr[0].set_title("Recall", fontsize=fontsize)
-axarr[1].set_title(r"$\delta$-precision", fontsize=fontsize)
-axarr[2].set_title(r"$\delta$-F1", fontsize=fontsize)
+axarr[0].set_ylabel("Recall", fontsize=fontsize)
+axarr[1].set_ylabel(r"$\delta$-precision", fontsize=fontsize)
+axarr[2].set_ylabel(r"$\delta$-F1", fontsize=fontsize)
 
 plt.tight_layout()
 fig.show()
 
-OUT_PATH = f"../figures/simulated_comparison"
+OUT_PATH = f"../../papier_pa/article/srcimages/simulated_comparison"
 
 if savefig:
     fig.savefig(OUT_PATH + ".pdf")
