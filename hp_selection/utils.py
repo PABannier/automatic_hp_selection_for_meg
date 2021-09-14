@@ -137,6 +137,58 @@ def get_duality_gap_mtl(X, Y, coef, active_set, alpha, n_orient=1):
     return gap, p_obj, d_obj
 
 
+def simulate_data_from_scratch(forward, src, labels, subject, info, annot, 
+                               subjects_dir, n_sources=2, n_times=100, 
+                               sanity_check=True):
+    G = forward["sol"]["data"]
+    X = np.zeros((n_sources, n_times))
+    M = np.zeros((G.shape[0], n_times))
+
+    times = np.arange(n_times) / info['sfreq']
+    latency = 0.1
+    duration = 0.03
+
+    def data_fun(times, latency, duration):
+        """Function to generate source time courses for evoked responses,
+        parametrized by latency and duration."""
+        f = 10  # oscillating frequency, beta band [Hz]
+        sigma = 0.375 * duration
+        sinusoid = np.cos(2 * np.pi * f * (times - latency))
+        return 1e-9 * sinusoid
+    
+    for i in range(n_sources):
+        X[i, :] = data_fun(times, latency, duration)
+
+    for j, label in enumerate(labels):
+        labels_tmp = mne.read_labels_from_annot(subject, annot,
+                                            subjects_dir=subjects_dir,
+                                            regexp=label,
+                                            verbose=False)
+        is_lh = 0 if label.split("-")[-1] == "lh" else 1
+        assert len(labels_tmp) == 1
+        label_tmp = labels_tmp[0]
+        label_tmp.vertices = np.intersect1d(label_tmp.vertices,
+                                            src[is_lh]["vertno"])
+        assert len(label_tmp.vertices) >= 1
+        label_tmp.values = np.ones(len(label_tmp.vertices))
+        label_tmp = mne.label.select_sources(subject, label_tmp,
+                                             subjects_dir=subjects_dir)
+        
+        idx_active_source = np.searchsorted(forward["src"][is_lh]["vertno"],
+                                            label_tmp.vertices)
+        assert len(idx_active_source) == 1
+        M += np.outer(G[:, idx_active_source], X[j, :])
+
+    if sanity_check:
+        import matplotlib.pyplot as plt
+        plt.plot(X.T)
+        plt.show()
+    
+    # TODO: Add noise
+
+    return G, X, M
+        
+
 def load_data(condition, maxfilter=True, simulated=False, amplitude=(200, 500),
               return_stc=False, return_labels=False, resolution=6):
     data_path = sample.data_path()
@@ -171,7 +223,8 @@ def load_data(condition, maxfilter=True, simulated=False, amplitude=(200, 500),
         activations = {
             'auditory/left':
                 [('G_temp_sup-G_T_transv-lh', amplitude[0]),          # label, activation (nAm)
-                ('G_temp_sup-G_T_transv-rh', amplitude[1])],
+                ('G_temp_sup-G_T_transv-rh', amplitude[1]),
+                ('S_calcarine-lh', amplitude[2])],
             'auditory/right':
                 [('G_temp_sup-G_T_transv-lh', amplitude[0]),
                 ('G_temp_sup-G_T_transv-rh', amplitude[1])],
@@ -211,19 +264,20 @@ def load_data(condition, maxfilter=True, simulated=False, amplitude=(200, 500),
             if region_name != condition:
                 continue
             events_tmp = events[np.where(events[:, 2] == region_id)[0], :]
-            for i in range(2):
+            for i in range(len(activations[region_name])):
                 label_name = activations[region_name][i][0]
                 label_tmp = mne.read_labels_from_annot(subject, annot,
                                                         subjects_dir=subjects_dir,
                                                         regexp=label_name,
                                                         verbose=False)[0]
+                dirty_mapping = {0: 0, 1: 1, 2: 0}
                 label_tmp.vertices = np.intersect1d(label_tmp.vertices,
-                                                    src[i]["vertno"])
+                                                    src[dirty_mapping[i]]["vertno"])
                 label_tmp.values = np.ones(len(label_tmp.vertices))  # Hacky but works
                 label_tmp = mne.label.select_sources(subject, label_tmp,
                                                      subjects_dir=subjects_dir)
                 labels.append(label_tmp)
-                amplitude_tmp = activations[region_name][i][1]
+                amplitude_tmp = activations[region_name][dirty_mapping[i]][1]
                 if region_name.split('/')[1][0] == label_tmp.hemi[0]:
                     latency_tmp = 0.115
                 else:
@@ -248,6 +302,10 @@ def load_data(condition, maxfilter=True, simulated=False, amplitude=(200, 500),
         raw = mne.preprocessing.maxwell_filter(raw, cross_talk=crosstalk_file,
                                                calibration=fine_cal_file,
                                                verbose=False)
+    
+    G, X, M = simulate_data_from_scratch(forward, forward["src"], 
+                               ['G_temp_sup-G_T_transv-lh', 'G_temp_sup-G_T_transv-rh', 'S_calcarine-lh'], 
+                               subject, info, annot, subjects_dir, n_sources=3)
 
     events = mne.find_events(raw)
     reject = dict(grad=4000e-13, eog=350e-6)
@@ -261,6 +319,8 @@ def load_data(condition, maxfilter=True, simulated=False, amplitude=(200, 500),
 
     evoked = evoked.pick_types(meg=True, eeg=False)
     evoked.crop(tmin=0.05, tmax=0.15)
+
+    evoked.data = M
 
     if return_stc and simulated:
         if return_labels:
