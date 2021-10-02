@@ -26,14 +26,14 @@ fontsize = 23
 fontsize2 = 15
 lw = 3
 markersize = 15
-# savefig = False
-savefig = True
+savefig = False
+# savefig = True
 
 mpl.rcParams["xtick.labelsize"] = fontsize
 mpl.rcParams["ytick.labelsize"] = fontsize
 dict_colors = color_palette("colorblind")
 
-data = joblib.load("../data/experiment_results_lower_extent.pkl")
+data = joblib.load("experiment_results_lower_extent.pkl")
 full_df = pd.DataFrame(data)
 
 full_df = full_df[full_df["solver"].isin(["sure", "spatial_cv", "lambda_map"])]
@@ -47,14 +47,15 @@ print("=" * 30)
 metric_names = ["recall", "delta_precision", "delta_f1_score"]
 fig, axarr = plt.subplots(1, len(metric_names), sharey="row", figsize=(14, 2))
 
-for idx_solver, solver in enumerate(["lambda_map", "spatial_cv", "sure"]):
+for idx_solver, solver in enumerate(["spatial_cv", "sure"]):
+# for idx_solver, solver in enumerate(["lambda_map", "sure"]):
     df_solver = full_df[full_df["solver"] == solver]
     solver_label = label_mapping[solver]
 
     for idx_metric, metric_name in enumerate(metric_names):
         n_elements = len(df_solver[metric_name])
-        n_markers = n_elements // 3
-        markevery = [3 * i + idx_solver for i in np.arange(n_markers)]
+        n_markers = n_elements // 2
+        markevery = [2 * i + idx_solver for i in np.arange(n_markers)]
         axarr[idx_metric].plot(
             df_solver["amplitude"], df_solver[metric_name],
             color=dict_colors[idx_solver], label=solver_label, lw=lw,
@@ -73,13 +74,14 @@ axarr[0].set_ylabel("Recall", fontsize=fontsize)
 axarr[1].set_ylabel(r"$\delta$-precision", fontsize=fontsize)
 axarr[2].set_ylabel(r"$\delta$-F1", fontsize=fontsize)
 
-plt.tight_layout()
-fig.show()
-
 OUT_PATH = f"../../papier_pa/article/srcimages/simulated_comparison"
+plt.tight_layout()
 
 if savefig:
     fig.savefig(OUT_PATH + ".pdf")
     fig.savefig(OUT_PATH + ".svg")
     _plot_legend_apart(axarr[0], OUT_PATH + "_legend.pdf")
     print("Figure saved.")
+
+plt.legend()
+fig.show()

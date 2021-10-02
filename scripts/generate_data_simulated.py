@@ -34,7 +34,7 @@ AMPLITUDE_RANGE = [(i, i) for i in np.linspace(100, 700, num=5)]
 
 MAXFILTER = False
 SIMULATED = True
-SOLVERS = ["temporal_cv", "sure", "lambda_map"]
+SOLVERS = ["spatial_cv", "sure", "lambda_map"]
 # SOLVERS = ["sure", "spatial_cv", "temporal_cv", "lambda_map"]
 
 def delta_f1_score(stc, true_stc, forward, subject, labels, extent,
