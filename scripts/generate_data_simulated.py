@@ -1,6 +1,8 @@
 from inspect import Attribute
 from itertools import product
 import time
+
+from numpy.core.function_base import linspace
 from joblib import parallel_backend
 from joblib import Parallel, delayed
 import joblib
@@ -20,18 +22,20 @@ from hp_selection.lambda_map import solve_using_lambda_map
 from hp_selection.temporal_cv import solve_using_temporal_cv
 from hp_selection.utils import apply_solver, load_data
 
-N_JOBS = 40
+N_JOBS = 1
 INNER_MAX_NUM_THREADS = 1
 
 CONDITION = "auditory/left"
 RESOLUTION = 6
 
 EXTENT = 7
-AMPLITUDE_RANGE = [(i*10, i*10) for i in range(1, 11)]
+AMPLITUDE_RANGE = [(i, i) for i in np.linspace(100, 500, num=2)]
+# AMPLITUDE_RANGE = [(i*10, i*10) for i in range(1, 11)]
 
 MAXFILTER = False
 SIMULATED = True
-SOLVERS = ["sure", "spatial_cv", "temporal_cv", "lambda_map"]
+SOLVERS = ["temporal_cv", "sure"]
+# SOLVERS = ["sure", "spatial_cv", "temporal_cv", "lambda_map"]
 
 def delta_f1_score(stc, true_stc, forward, subject, labels, extent,
                    subjects_dir):
@@ -46,7 +50,7 @@ def delta_f1_score(stc, true_stc, forward, subject, labels, extent,
     if type(stc) == tuple:
         stc = stc[0]
 
-    stc.expand(vertices)  
+    stc.expand(vertices)
     true_stc.expand(vertices)
 
     est_activations = np.abs(stc.data).sum(axis=-1)

@@ -137,8 +137,8 @@ def get_duality_gap_mtl(X, Y, coef, active_set, alpha, n_orient=1):
     return gap, p_obj, d_obj
 
 
-def simulate_data_from_scratch(forward, src, labels, subject, info, annot, 
-                               subjects_dir, n_sources=2, n_times=100, 
+def simulate_data_from_scratch(forward, src, labels, subject, info, annot,
+                               subjects_dir, n_sources=2, n_times=100,
                                sanity_check=True):
     G = forward["sol"]["data"]
     X = np.zeros((n_sources, n_times))
@@ -155,7 +155,7 @@ def simulate_data_from_scratch(forward, src, labels, subject, info, annot,
         sigma = 0.375 * duration
         sinusoid = np.cos(2 * np.pi * f * (times - latency))
         return 1e-9 * sinusoid
-    
+
     for i in range(n_sources):
         X[i, :] = data_fun(times, latency, duration)
 
@@ -173,7 +173,7 @@ def simulate_data_from_scratch(forward, src, labels, subject, info, annot,
         label_tmp.values = np.ones(len(label_tmp.vertices))
         label_tmp = mne.label.select_sources(subject, label_tmp,
                                              subjects_dir=subjects_dir)
-        
+
         idx_active_source = np.searchsorted(forward["src"][is_lh]["vertno"],
                                             label_tmp.vertices)
         assert len(idx_active_source) == 1
@@ -183,11 +183,11 @@ def simulate_data_from_scratch(forward, src, labels, subject, info, annot,
         import matplotlib.pyplot as plt
         plt.plot(X.T)
         plt.show()
-    
+
     # TODO: Add noise
 
     return G, X, M
-        
+
 
 def load_data(condition, maxfilter=True, simulated=False, amplitude=(200, 500),
               return_stc=False, return_labels=False, resolution=6):
@@ -223,8 +223,9 @@ def load_data(condition, maxfilter=True, simulated=False, amplitude=(200, 500),
         activations = {
             'auditory/left':
                 [('G_temp_sup-G_T_transv-lh', amplitude[0]),          # label, activation (nAm)
-                ('G_temp_sup-G_T_transv-rh', amplitude[1]),
-                ('S_calcarine-lh', amplitude[2])],
+                ('G_temp_sup-G_T_transv-rh', amplitude[1])
+                # ('S_calcarine-lh', amplitude[2])
+                ],
             'auditory/right':
                 [('G_temp_sup-G_T_transv-lh', amplitude[0]),
                 ('G_temp_sup-G_T_transv-rh', amplitude[1])],
@@ -245,17 +246,17 @@ def load_data(condition, maxfilter=True, simulated=False, amplitude=(200, 500),
             """Function to generate source time courses for evoked responses,
             parametrized by latency and duration."""
             f = 10  # oscillating frequency, beta band [Hz]
-            sigma = 0.375 * duration
+            # sigma = 0.375 * duration
             sinusoid = np.cos(2 * np.pi * f * (times - latency))
             # gf = np.exp(- (times - latency - (sigma / 4.) * rng.rand(1)) ** 2 /
             #             (2 * (sigma ** 2)))
-            gf = np.exp(- (times - latency - (sigma / 4.)) ** 2 /
-                        (2 * (sigma ** 2)))
-            gf = 1
-            
-            return 1e-9 * sinusoid * gf
+            # gf = np.exp(- (times - latency - (sigma / 4.)) ** 2 /
+            #             (2 * (sigma ** 2)))
+            # gf = 1
 
-        times = np.arange(150, dtype=np.float64) / info['sfreq']
+            return 1e-9 * sinusoid
+
+        times = np.arange(100, dtype=np.float64) / info['sfreq']
         duration = 0.03
         rng = np.random.RandomState(7)
         source_simulator = mne.simulation.SourceSimulator(src, tstep=tstep)
@@ -263,13 +264,18 @@ def load_data(condition, maxfilter=True, simulated=False, amplitude=(200, 500),
         for region_id, region_name in enumerate(region_names, 1):
             if region_name != condition:
                 continue
-            events_tmp = events[np.where(events[:, 2] == region_id)[0], :]
+            events_tmp = events[np.where(events[:, 2] == region_id)[0], :][:2, :]
+            events_tmp[0, 0] = 1000
+            # events_tmp[1, 0] = 1000
+            n_events = 3
+            # events_tmp = np.zeros((n_events, 3), int)
+            # events_tmp[:, 0] = 100 + 200 * np.arange(n_events)  # Events sample.
+            # events_tmp[:, 2] = 1  # All events have the sample id.
             for i in range(len(activations[region_name])):
                 label_name = activations[region_name][i][0]
-                label_tmp = mne.read_labels_from_annot(subject, annot,
-                                                        subjects_dir=subjects_dir,
-                                                        regexp=label_name,
-                                                        verbose=False)[0]
+                label_tmp = mne.read_labels_from_annot(
+                    subject, annot, subjects_dir=subjects_dir,
+                    regexp=label_name, verbose=False)[0]
                 dirty_mapping = {0: 0, 1: 1, 2: 0}
                 label_tmp.vertices = np.intersect1d(label_tmp.vertices,
                                                     src[dirty_mapping[i]]["vertno"])
@@ -287,7 +293,8 @@ def load_data(condition, maxfilter=True, simulated=False, amplitude=(200, 500),
                                           amplitude_tmp * wf_tmp,
                                           events_tmp)
 
-        raw = mne.simulation.simulate_raw(info, source_simulator, forward=forward)
+        raw = mne.simulation.simulate_raw(
+            info, source_simulator, forward=forward)
         raw.set_eeg_reference(projection=True)
         mne.simulation.add_noise(raw, cov=noise_cov, random_state=0)
 
@@ -302,10 +309,6 @@ def load_data(condition, maxfilter=True, simulated=False, amplitude=(200, 500),
         raw = mne.preprocessing.maxwell_filter(raw, cross_talk=crosstalk_file,
                                                calibration=fine_cal_file,
                                                verbose=False)
-    
-    G, X, M = simulate_data_from_scratch(forward, forward["src"], 
-                               ['G_temp_sup-G_T_transv-lh', 'G_temp_sup-G_T_transv-rh', 'S_calcarine-lh'], 
-                               subject, info, annot, subjects_dir, n_sources=3)
 
     events = mne.find_events(raw)
     reject = dict(grad=4000e-13, eog=350e-6)
@@ -315,12 +318,12 @@ def load_data(condition, maxfilter=True, simulated=False, amplitude=(200, 500),
     epochs = mne.Epochs(raw, events, event_id, tmin, tmax, picks=picks,
                         reject=reject, preload=True, baseline=(None, 0))
     evoked = epochs.average()
+    # import ipdb; ipdb.set_trace()
+    # evoked.plot()
     noise_cov = mne.compute_covariance(epochs, rank="info", tmax=0.0)
 
     evoked = evoked.pick_types(meg=True, eeg=False)
     evoked.crop(tmin=0.05, tmax=0.15)
-
-    evoked.data = M
 
     if return_stc and simulated:
         if return_labels:
