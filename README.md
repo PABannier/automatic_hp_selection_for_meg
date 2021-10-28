@@ -1,5 +1,4 @@
-# Electromagnetic neural source imaging under sparsity constraints with SURE-based
-# hyperparameter tuning.
+# Electromagnetic neural source imaging under sparsity constraints with SURE-based hyperparameter tuning.
 
 ## Summary
 
