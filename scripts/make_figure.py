@@ -1,5 +1,4 @@
 import argparse
-from scripts.plot_brain_morphing import HEMISPHERES
 import joblib
 import os.path as op
 
