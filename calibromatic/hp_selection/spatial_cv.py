@@ -211,7 +211,7 @@ class SpatialCV(BaseEstimator, RegressorMixin):
         return coef, w
 
 
-def spatial_cv(G, M, n_orient, n_mxne_iter=5, grid_length=14, n_folds=5, 
+def spatial_cv(G, M, n_orient, n_mxne_iter=5, grid_length=15, n_folds=5, 
                random_state=0):
     """Calibrate Lasso model with a cross-validation splitted along the sensors.
 
