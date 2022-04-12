@@ -5,60 +5,70 @@ from sklearn.model_selection import KFold
 from sklearn.metrics import mean_squared_error
 from sklearn.utils.validation import check_X_y, check_is_fitted, check_array
 from sklearn.base import BaseEstimator, RegressorMixin
-from sklearn.metrics import f1_score, jaccard_score
 
-from calibromatic.sparse_solver import MultiTaskLassoUnscaled
-from calibromatic.utils import (compute_alpha_max, solve_irmxne_problem,
-                                build_full_coefficient_matrix)
+from calibromatic.sparse_solver import MixedNorm
+from calibromatic.utils import compute_alpha_max, solve_irmxne_problem
 
 
 
-class ReweightedMultiTaskLassoCV(BaseEstimator, RegressorMixin):
-    """Cross-validate the regularization penalty constant `alpha`
-    for a reweighted multi-task LASSO regression.
+class SpatialCV(BaseEstimator, RegressorMixin):
+    r"""Calibrates mixed norm with spatial cross-validation.
 
     Parameters
     ----------
-    alpha_grid : list or np.ndarray
-        Values of `alpha` to test.
+    alpha_grid : array, shape (n_alphas,)
+        Grid of regularization parameter to test.
 
-    criterion : Callable, default=mean_squared_error
-        Cross-validation metric (e.g. MSE, SURE).
+    criterion : callable, optional
+        Cross-validation metric.
 
-    n_folds : int, default=5
+    n_folds : int, optional
         Number of folds.
 
-    n_iterations : int, default=5
-        Number of reweighting iterations performed during fitting.
-
-    random_state : int or None, default=None
-        Seed for reproducible experiments.
+    n_reweighting : int, optional
+        Number of penalty reweighing.
 
     penalty : callable, default=None
         See docs of ReweightedMultiTaskLasso for more details.
 
-    n_orient : int, default=1
-        Number of orientations for a dipole on the scalp surface. Choose 1 for
-        fixed orientation and 3 for free orientation.
+    n_orient: int, optional
+        Number of orientation for a dipole. 1 for fixed orientation, > 1 for free.
+
+    random_state : int or None, optional
+        Seed for reproducible experiments.
+
+    Attributes
+    ----------
+    coef_ : array, shape (n_sources, n_times)
+        The coefficient matrix corresponding to `best_estimator_`.
+
+    best_estimator_ : instance of MixedNorm
+        The estimator minimizing the cross-validation criterion.
+
+    best_cv_ : float
+        The lowest cross-validation score.
+
+    best_alpha_ : float
+        The alpha corresponding to `best_cv_`.
+
+    mse_path_ : array, shape (n_alphas,)
+        The MSE value along the path.
     """
-    def __init__(self, alpha_grid: list, criterion = mean_squared_error,
-                 n_folds = 5, n_iterations = 5, random_state = None,
-                 penalty = None, n_orient = 1):
+
+    def __init__(self, alpha_grid, criterion=mean_squared_error, n_folds=5,
+                 n_reweighting=5, random_state=None, penalty=None, n_orient=1):
         if not isinstance(alpha_grid, (list, np.ndarray)):
-            raise TypeError(
-                "The parameter grid must be a list or a Numpy array."
-            )
+            raise TypeError("The parameter grid must be a list or a Numpy array.")
 
         self.alpha_grid = alpha_grid
         self.criterion = criterion
         self.n_folds = n_folds
-        self.n_iterations = n_iterations
+        self.n_reweighting = n_reweighting
         self.random_state = random_state
         self.n_orient = n_orient
 
-        self.best_estimator_ = None
+        self.coef_ = None
         self.best_cv_, self.best_alpha_ = np.inf, None
-
         self.n_alphas = len(self.alpha_grid)
         self.mse_path_ = np.full((self.n_alphas, n_folds), np.inf)
 
@@ -66,23 +76,17 @@ class ReweightedMultiTaskLassoCV(BaseEstimator, RegressorMixin):
             self.penalty = penalty
         else:
             self.penalty = lambda u: 1 / (
-                2 * np.sqrt(norm(u, axis=1)) + np.finfo(float).eps
-            )
-
-    @property
-    def coef_(self):
-        return self.best_estimator_.coef_
+                2 * np.sqrt(norm(u, axis=1)) + np.finfo(float).eps)
 
     def fit(self, X, Y):
-        """Fits the cross-validation error estimator
-        on X and Y.
+        """Fit cross-validation to select best `alpha`.
 
         Parameters
         ----------
-        X : np.ndarray of shape (n_samples, n_features)
+        X : array, shape (n_samples, n_features)
             Design matrix.
 
-        Y : np.ndarray of shape (n_samples, n_tasks)
+        Y : array, shape (n_samples, n_tasks)
             Target matrix.
         """
         X, Y = check_X_y(X, Y, multi_output=True)
@@ -109,19 +113,43 @@ class ReweightedMultiTaskLassoCV(BaseEstimator, RegressorMixin):
 
         self.best_cv_ = np.min(scores_per_alpha_)
         self.best_alpha_ = self.alpha_grid[np.argmin(scores_per_alpha_)]
+        self.coef_ = None  # TODO: register best coef
 
         print("\n")
         print(f"Best criterion: {self.best_cv_}")
         print(f"Best alpha: {self.best_alpha_}")
 
-    def _fit_reweighted_with_grid(self, X_train, Y_train, X_valid, Y_valid,
-                                  idx_fold):
+        return self
+
+    def _fit_reweighted_with_grid(self, X_train, Y_train, X_valid, Y_valid, idx_fold):
+        """Fit an iteratively reweighted Mixed Norm to the data.
+
+        Parameters
+        ----------
+        X_train : array, shape (n_train_samples, n_features)
+            The training design matrix.
+
+        Y_train : array, shape (n_train_samples, n_tasks)
+            The training measurement matrix.
+
+        X_valid : array, shape (n_valid_samples, n_features)
+            The validation design matrix.
+
+        Y_valid : array, shape (n_valid_samples, n_tasks)
+            The validation measurement matrix.
+
+        idx_fold : int
+            The fold index currently fitted.
+
+        Returns
+        -------
+        coefs : array, shape (n_features, n_tasks)
+            The coefficient matrix.
+        """
         n_features, n_tasks = X_train.shape[1], Y_train.shape[1]
         coef_0 = np.empty((self.n_alphas, n_features, n_tasks))
 
-        regressor = MultiTaskLassoUnscaled(np.nan, warm_start=True,
-                                           n_orient=self.n_orient,
-                                           accelerated=True)
+        regressor = MixedNorm(np.nan, warm_start=True, n_orient=self.n_orient)
 
         # Copy grid of first iteration (leverages convexity)
         for j, alpha in enumerate(self.alpha_grid):
@@ -135,64 +163,95 @@ class ReweightedMultiTaskLassoCV(BaseEstimator, RegressorMixin):
             regressor.alpha = alpha
             w = self.penalty(coef_0[j])
 
-            for _ in range(self.n_iterations - 1):
+            for _ in range(self.n_reweighting - 1):
                 mask = w != 1.0 / np.finfo(float).eps
                 coefs[j][~mask] = 0.0
 
                 if mask.sum():
                     coefs[j][mask], w[mask] = self._reweight_op(
-                        regressor, X_train[:, mask], Y_train, w[mask]
-                    )
+                        regressor, X_train[:, mask], Y_train, w[mask])
 
                     self.mse_path_[j, idx_fold] = mean_squared_error(
-                        Y_valid, X_valid @ coefs[j]
-                    )
+                        Y_valid, X_valid @ coefs[j])
                 else:
                     self.mse_path_[j, idx_fold] = mean_squared_error(
                         Y_valid, np.zeros_like(Y_valid))
-
         return coefs
 
     def _reweight_op(self, regressor, X, Y, w):
-        X_w = X / w[np.newaxis, :]
-        regressor.fit(X_w, Y)
-
-        w = np.expand_dims(w, axis=-1)
-        coef = regressor.coef_ / w
-        w = self.penalty(coef)
-
-        return coef, w
-
-    def predict(self, X: np.ndarray):
-        """Predicts data with the fitted coefficients.
+        """Reweight design matrix by the weight (computing trick).
 
         Parameters
         ----------
-        X : np.ndarray of shape (n_samples, n_features)
-            Design matrix for inference.
+        regressor : instance of MixedNorm
+            The mixed norm estimator.
+
+        X : array, shape (n_samples, n_features)
+            The design matrix.
+
+        Y : array, shape (n_samples, n_tasks)
+            The measurement matrix.
+
+        w : array, shape (n_features)
+            A weight vector applied to the columns of X.
+
+        Returns
+        -------
+        coef : array, shape (n_features, n_tasks)
+            The coefficient matrix.
+
+        w : array, shape (n_features)
+            The updated weight vector.
         """
-        check_is_fitted(self)
-        X = check_array(X)
-        return self.best_estimator_.predict(X)
+        X_w = X / w[np.newaxis, :]
+        regressor.fit(X_w, Y)
+        w = np.expand_dims(w, axis=-1)
+        coef = regressor.coef_ / w
+        w = self.penalty(coef)
+        return coef, w
 
 
-def solve_using_spatial_cv(G, M, n_orient, n_mxne_iter=5, grid_length=14, K=5,
-                           random_state=0):
-    """
-    Solves the multi-task Lasso problem with a group l2,0.5 penalty with
-    irMxNE. Regularization hyperparameter selection is done using (spatial) CV.
+def spatial_cv(G, M, n_orient, n_mxne_iter=5, grid_length=14, n_folds=5, 
+               random_state=0):
+    """Calibrate Lasso model with a cross-validation splitted along the sensors.
+
+    Parameters
+    ----------
+    G : array, shape (n_sensors, n_sources)
+        The gain matrix.
+
+    M : array, shape (n_sensors, n_times)
+        The measurement matrix.
+
+    n_orient : int
+        Number of orientations. 1 if fixed orientation, otherwise free.
+
+    n_mxne_iter : int
+        Number of reweighting iterations of the mixed norm estimate.
+    
+    grid_length : int
+        The grid length.
+    
+    n_folds : int  
+        The number of folds.
+    
+    random_state : int
+        The random state.
+
+    Returns
+    -------
+    X : array, shape (n_sensors, ws_size)
+        The coefficient matrix restricted to the active set.
+
+    active_set : array, shape (n_sources)
+        Boolean array containing the activated sources.
     """
     alpha_max = compute_alpha_max(G, M, n_orient)
     grid = np.linspace(alpha_max, alpha_max * 0.1, grid_length)
 
-    criterion = ReweightedMultiTaskLassoCV(grid, n_folds=K,
-                                           n_iterations=n_mxne_iter,
-                                           random_state=random_state,
-                                           n_orient=n_orient)
+    criterion = SpatialCV(grid, n_folds=n_folds, n_iterations=n_mxne_iter,
+                          n_orient=n_orient, random_state=random_state)
     criterion.fit(G, M)
-    best_alpha = criterion.best_alpha_
-
-    # Refitting
-    best_X, best_as = solve_irmxne_problem(G, M, best_alpha, n_orient,
-                                           n_mxne_iter=n_mxne_iter)
-    return best_X, best_as
+    X_ = criterion.coef_
+    as_ = norm(X_, axis=0) != 0
+    return X_, as_

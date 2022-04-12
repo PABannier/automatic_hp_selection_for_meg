@@ -8,7 +8,7 @@ from calibromatic.utils import (get_duality_gap_mtl, primal_mtl, groups_norm2,
     sum_squared, get_dgemm)
 
 
-class MultiTaskLassoUnscaled(BaseEstimator, RegressorMixin):
+class MixedNorm(BaseEstimator, RegressorMixin):
     r"""Lasso solver for neuroscience inverse problem.
 
     The optimization objective for Lasso is::
@@ -30,7 +30,7 @@ class MultiTaskLassoUnscaled(BaseEstimator, RegressorMixin):
         Stopping criterion for the optimization.
 
     p0: int, optional
-        First working set size.
+        First active set size.
 
     warm_start: bool, optional (default=True)
         When set to True, reuse the solution of the previous call to fit as
@@ -177,7 +177,7 @@ class MultiTaskLassoUnscaled(BaseEstimator, RegressorMixin):
         return self
 
     def _block_coordinate_descent(self, X, Y, lipschitz, init, _alpha):
-        """Solve subproblems restriced to working set.
+        """Solve subproblems restricted to active set.
 
         Parameters
         ----------
