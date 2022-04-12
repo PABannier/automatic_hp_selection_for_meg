@@ -1,35 +1,34 @@
-# Electromagnetic neural source imaging under sparsity constraints with SURE-based hyperparameter tuning.
+# Automatic hyperparameter selection for Lasso-like models solving inverse problems
 
 ## Summary
 
-This repository contains a full-fledged implementation of a SURE-based hyperparameter tuning technique used
-to automatically finetune the regularization hyperparameter of Lasso-like models for the electromagnetic neural 
-source imaging inverse problem. 
+We propose a hyperparameter selection technique based on SURE to automatically calibrate
+Lasso-like models solving inverse problems.
 
-The associated paper was accepted at the workshop **Medical Imaging Meets NeurIPS 2021**.
+This repository contains the automatic calibrator and is used to demonstrate the
+superiority of this method on sparse models solving the M/EEG inverse problem. As part
+of our benchmark, we provide an implementation of two competitors: Lambda-MAP and
+temporal cross-validation.
 
-Paper available: https://hal.archives-ouvertes.fr/hal-03418092/document
+An in-depth explanation can be found here: https://arxiv.org/abs/2112.12178
 
-The repository also contains the code to benchmark other hyperparameter tuning methods namely, **Hierarchical Bayesian Modelling**
-(Lambda-MAP) and **Spatial Cross-Validation**.
+This work was accepted at the **Medical Imaging Meets NeurIPS 2021** workshop.
 
-## Install
+Note that the default solver in [**MNE-Python**](https://github.com/mne-tools/mne-python)
+for inverse problems is automatically calibrated using Monte Carlo Finite Difference (MCFD)
+SURE.
 
-At the root of the repo, run:
+## Installation
 
+Start by installing the necessary requirements. We recommend creating a new `venv` or
+`conda` environment. Once created and activated, run
+
+```bash
+pip install -r requirements.txt
 ```
+
+Then to install our package:
+
+```bash
 pip install -e .
 ```
-
-## Requirements
-
-```
-numpy
-matplotlib
-mne
-```
-
-## Miscellaneous
-
-A working implementation of Monte Carlo Finite Difference (MCFD) SURE can be found in **MNE** (https://github.com/mne-tools/mne-python).
-It is the default option when using the `mixed_norm` solver.

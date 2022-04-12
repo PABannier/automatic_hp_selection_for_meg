@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 
 setup(
-    name="hp_selection",
+    name="oracle_calibration",
     install_requires=[
         "numpy>=1.12",
         "joblib",
