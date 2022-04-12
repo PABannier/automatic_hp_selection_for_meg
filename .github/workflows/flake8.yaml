@@ -1,0 +1,26 @@
+name: linter
+
+on: push
+
+jobs:
+  lint:
+    name: Lint code base
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Setup Python 3.8
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.8
+
+      - name: Lint with flake
+        run: |
+          pip install flake8
+          flake8 calibromatic/ --max-line-length=88
+      - name: Check doc style with pydocstyle
+        run: |
+          pip install pydocstyle
+          pydocstyle calibromatic --ignore='D100',D102,'D104','D107','D203','D213','D413'
