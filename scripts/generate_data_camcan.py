@@ -1,4 +1,4 @@
-from calibromatic.lambda_map import solve_using_lambda_map
+from calibromatic.hp_selection.lambda_map import solve_using_lambda_map
 from pathlib import Path
 import os
 from joblib import parallel_backend
@@ -8,9 +8,9 @@ import joblib
 import pandas as pd
 
 from calibromatic.utils import load_data_from_camcan, apply_solver
-from calibromatic.spatial_cv import solve_using_spatial_cv
-from calibromatic.temporal_cv import solve_using_temporal_cv
-from calibromatic.sure import solve_using_sure
+from calibromatic.hp_selection.spatial_cv import solve_using_spatial_cv
+from calibromatic.hp_selection.temporal_cv import solve_using_temporal_cv
+from calibromatic.hp_selection.sure import solve_using_sure
 
 N_JOBS = 30  # -1
 INNER_MAX_NUM_THREADS = 1

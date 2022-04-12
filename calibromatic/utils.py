@@ -1,6 +1,5 @@
 import functools
 import os
-import joblib
 from pathlib import Path
 
 import numpy as np
@@ -11,7 +10,6 @@ from mne.inverse_sparse.mxne_inverse import (_prepare_gain, is_fixed_orient,
                                              _reapply_source_weighting,
                                              _make_sparse_stc)
 from mne.inverse_sparse.mxne_optim import iterative_mixed_norm_solver
-from mne.preprocessing import find_bad_channels_maxwell
 
 
 def groups_norm2(A, n_orient=1):

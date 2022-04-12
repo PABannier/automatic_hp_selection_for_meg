@@ -1,5 +1,5 @@
 import numpy as np
-from calibromatic.solver_free_orient import MultiTaskLassoUnscaled
+from calibromatic.sparse_solver import MultiTaskLassoUnscaled
 from calibromatic.utils import norm_l2_inf, groups_norm2
 
 

@@ -2,83 +2,62 @@ import numpy as np
 from numpy.linalg import norm
 
 from sklearn.base import BaseEstimator, RegressorMixin
-from sklearn.utils import check_X_y, check_array
-from sklearn.utils.validation import check_is_fitted
+from sklearn.utils import check_X_y
 
-from calibromatic.utils import (
-    get_duality_gap_mtl,
-    primal_mtl,
-    groups_norm2,
-    sum_squared,
-    get_dgemm,
-)
+from calibromatic.utils import (get_duality_gap_mtl, primal_mtl, groups_norm2,
+    sum_squared, get_dgemm)
 
 
 class MultiTaskLassoUnscaled(BaseEstimator, RegressorMixin):
-    """MultiTask Lasso solver specificially designed for
-    neuroscience inverse problem. It supports fixed and free
-    dipole orientations.
+    r"""Lasso solver for neuroscience inverse problem.
 
-    Main features: active set strategy, Anderson acceleration.
+    The optimization objective for Lasso is::
 
-    Note: GEMM functions are called in each BCD pass for faster
-    iteration time. It directly calls the appropriate BLAS function
-    and avoids creating an extra temporary variable.
+    (1 / 2) * ||M - GX||^2_F + alpha * ||X||_2,1
 
     Parameters
     ----------
     alpha: float
         Regularization parameter.
 
-    n_orient: int, default=1
-        Number of orientation for a dipole. Fixed orientation
-        corresponds to n_orient = 1. Free orientation corresponds
-        to n_orient > 1.
+    n_orient: int, optional
+        Number of orientation for a dipole. 1 for fixed orientation, > 1 for free.
 
-    max_iter: int, default=2000
-        Maximum number of iterations for coordinate descent.
+    max_iter: int, optional
+        The maximum number of iterations for coordinate descent.
 
-    tol: float, default=1e-8
-        Gap threshold to stop the solver.
+    tol: float, optional
+        Stopping criterion for the optimization.
 
-    warm_start: bool, default=True
-        Starts fitting with previously fitted regression
-        coefficients.
+    p0: int, optional
+        First working set size.
 
-    accelerated: bool, default=True
-        Use Anderson acceleration to speed up convergence.
+    warm_start: bool, optional (default=True)
+        When set to True, reuse the solution of the previous call to fit as
+        initialization, otherwise, just erase the previous solution.
 
-    K: int, default=5
-        Number of previous coefficient matrix used to compute
-        the extrapolated coefficient matrix in Anderson
-        acceleration.
-
-    active_set_size: int, default=50
-        Size of active set increase at each iteration.
-
-    verbose: bool, default=False
+    verbose: bool, optional (default=False)
         Verbosity.
 
     Attributes
     ----------
-    coef_: array of shape (n_features, n_times)
-        Contains the coefficients of the Lasso.
+    coef_: array, shape (n_features, n_times)
+        Parameter matrix.
 
     gap_history_: list
-        Stores the duality gap during fitting.
+        The duality gap along the path.
+
+    Notes
+    -----
+    This solver supports fixed and free dipole orientations.
     """
 
-    def __init__(self, alpha, n_orient=3, max_iter=2000, tol=1e-4,
-                 warm_start=True, accelerated=True, K=5, active_set_size=100,
-                 verbose=False):
-        self.alpha = alpha
+    def __init__(self, alpha, n_orient=3, max_iter=100, tol=1e-5, p0=100,
+                 warm_start=True, verbose=False):
+        super(MultiTaskLassoUnscaled, self).__init__(
+            alpha=alpha, tol=tol, max_iter=max_iter, warm_start=warm_start)
         self.n_orient = n_orient
-        self.max_iter = max_iter
-        self.tol = tol
-        self.warm_start = warm_start
-        self.accelerated = accelerated
-        self.K = K
-        self.active_set_size = active_set_size
+        self.p0 = p0
         self.verbose = verbose
 
         self.gap_history_ = []
@@ -87,37 +66,29 @@ class MultiTaskLassoUnscaled(BaseEstimator, RegressorMixin):
         self.active_set_ = None
 
     def fit(self, X, Y, alpha=None):
-        """Fits the MultiTaskLasso estimator to the X and Y
-        matrices.
-
-        The solver initializes an active set and gradually
-        increases it by a fixed amount (active_set_size).
+        """Compute Lasso fit.
 
         Parameters
         ----------
-        X: array of shape (n_samples, n_features)
+        X: array, shape (n_samples, n_features)
             Design matrix.
 
-        Y: array of shape (n_samples, n_times)
+        Y: array, shape (n_samples, n_times)
             Target matrix.
 
         alpha: float, default=None
             Regularization parameter. If None, the solver uses self.alpha.
-            This parameter is useful when calling the fit method in
-            MultiTaskLassoOrientation.
         """
-
         _alpha = alpha if alpha is not None else self.alpha
         X, Y = check_X_y(X, Y, multi_output=True)
 
-        n_features = X.shape[1]
-        n_times = Y.shape[1]
+        n_features, n_times = X.shape[1], Y.shape[1]
         n_positions = n_features // self.n_orient
-        lipschitz_consts = np.empty(n_positions)
+        lipschitz = np.zeros(n_positions)
 
         for j in range(n_positions):
             idx = slice(j * self.n_orient, (j + 1) * self.n_orient)
-            lipschitz_consts[j] = norm(X[:, idx], ord=2) ** 2
+            lipschitz[j] = norm(X[:, idx], ord=2) ** 2
 
         if self.active_set_ is None or not self.warm_start:
             active_set = np.zeros(n_features, dtype=bool)
@@ -125,8 +96,7 @@ class MultiTaskLassoUnscaled(BaseEstimator, RegressorMixin):
             # Useful for warm starting active set
             active_set = self.active_set_
 
-        idx_large_corr = np.argsort(groups_norm2(np.dot(X.T, Y),
-                                    self.n_orient))
+        idx_large_corr = np.argsort(groups_norm2(np.dot(X.T, Y), self.n_orient))
         new_active_idx = idx_large_corr[-self.active_set_size:]
 
         if self.n_orient > 1:
@@ -151,21 +121,14 @@ class MultiTaskLassoUnscaled(BaseEstimator, RegressorMixin):
             coef_init = None
 
         for k in range(self.max_iter):
-            lipschitz_consts_tmp = lipschitz_consts[
-                active_set[:: self.n_orient]
-            ]
-
-            coef, as_ = self._block_coordinate_descent(
-                X[:, active_set], Y, lipschitz_consts_tmp, coef_init, _alpha
-            )
-
+            lipschitz_ = lipschitz[active_set[:: self.n_orient]]
+            coef, as_ = self._block_coordinate_descent(X[:, active_set], Y, lipschitz_,
+                                                       coef_init, _alpha)
             active_set[active_set] = as_.copy()
             idx_old_active_set = np.where(active_set)[0]
 
-            _, p_obj, d_obj = get_duality_gap_mtl(
-                X, Y, coef, active_set, _alpha, self.n_orient
-            )
-
+            _, p_obj, d_obj = get_duality_gap_mtl(X, Y, coef, active_set, _alpha,
+                                                  self.n_orient)
             highest_d_obj = max(highest_d_obj, d_obj)
             gap = p_obj - highest_d_obj
 
@@ -185,9 +148,7 @@ class MultiTaskLassoUnscaled(BaseEstimator, RegressorMixin):
 
             if k < (self.max_iter - 1):
                 R = Y - X[:, active_set] @ coef
-                idx_large_corr = np.argsort(
-                    groups_norm2(np.dot(X.T, R), self.n_orient)
-                )
+                idx_large_corr = np.argsort(groups_norm2(np.dot(X.T, R), self.n_orient))
                 new_active_idx = idx_large_corr[-self.active_set_size:]
 
                 if self.n_orient > 1:
@@ -215,55 +176,34 @@ class MultiTaskLassoUnscaled(BaseEstimator, RegressorMixin):
 
         return self
 
-    def predict(self, X):
-        """If fitted, predicts X using the fitted coefficients.
-
-        Parameters
-        ----------
-        X: array of shape (n_samples, n_features)
-            Design matrix.
-
-        Returns
-        -------
-        Y: array of shape (n_samples, n_times)
-            Predicted matrix.
-        """
-        check_is_fitted(self)
-        X = check_array(X)
-        return X @ self.coef_
-
     def _block_coordinate_descent(self, X, Y, lipschitz, init, _alpha):
-        """Implements a block coordinate descent algorithm using
-        Anderson acceleration.
+        """Solve subproblems restriced to working set.
 
         Parameters
         ----------
-        X: array of shape (n_samples, n_features)
+        X: array, (n_samples, n_features)
             Design matrix.
 
-        Y: array of shape (n_samples, n_times)
+        Y: array, (n_samples, n_times)
             Target matrix.
 
-        lipschitz: array (shape varies with active set)
+        lipschitz: array, (ws_size,)
             Lipschitz constants for every block.
 
-        init: array (shape varies with active set)
+        init: array (ws_size,)
             Coefficient initialized from previous iteration.
             If None, coefficients are initialized with zeros.
 
-        _alpha: float, default=None
-            Regularization parameter. If None, the solver uses self.alpha.
-            This parameter is useful when calling the fit method in
-            MultiTaskLassoOrientation.
+        _alpha: float
+            Regularization parameter.
 
         Returns
         -------
-        coef: array of shape (n_features, n_times)
+        coef: array, shape (n_features, n_times)
             Coefficient matrix.
 
-        active_set: array of shape (n_features)
-            Contains boolean values. If True, the feature
-            is active.
+        active_set: array, shape (n_features,)
+            The active set.
         """
         n_times = Y.shape[1]
         n_features = X.shape[1]
@@ -287,6 +227,7 @@ class MultiTaskLassoUnscaled(BaseEstimator, RegressorMixin):
 
         for iter_idx in range(self.max_iter):
             coef_j_new = np.zeros_like(coef[: self.n_orient, :], order="C")
+            # Call to Fortran BLAS subroutine
             dgemm = get_dgemm()
 
             for j in range(n_positions):
@@ -320,50 +261,46 @@ class MultiTaskLassoUnscaled(BaseEstimator, RegressorMixin):
                     coef_j[:] = coef_j_new
                     active_set[idx] = True
 
-            _, p_obj, d_obj = get_duality_gap_mtl(X, Y, coef[active_set],
-                                                  active_set, _alpha,
-                                                  self.n_orient)
+            _, p_obj, d_obj = get_duality_gap_mtl(X, Y, coef[active_set], active_set,
+                                                  _alpha, self.n_orient)
             highest_d_obj = max(d_obj, highest_d_obj)
             gap = p_obj - highest_d_obj
 
             if self.verbose:
-                print(
-                    f"[{iter_idx+1}/{self.max_iter}] p_obj {p_obj:.5f} :: "
-                    + f"d_obj {d_obj:.5f} :: d_gap {gap:.5f}"
-                )
+                print(f"[{iter_idx+1}/{self.max_iter}] p_obj {p_obj:.5f} :: "
+                      + f"d_obj {d_obj:.5f} :: d_gap {gap:.5f}")
 
             if self.accelerated:
                 last_K_coef[iter_idx % (self.K + 1)] = coef
 
                 if iter_idx % (self.K + 1) == self.K:
                     for k in range(self.K):
-                        U[k] = (
-                            last_K_coef[k + 1].ravel() - last_K_coef[k].ravel()
-                        )
+                        U[k] = last_K_coef[k + 1].ravel() - last_K_coef[k].ravel()
 
                     C = U @ U.T
 
                     try:
                         z = np.linalg.solve(C, np.ones(self.K))
+                        # When C is ill-conditioned, z can take very large finite
+                        # positive and negative values (1e35 and -1e35), which leads
+                        # to z.sum() being null.
+                        if z.sum() == 0:
+                            raise np.linalg.LinAlgError
+                    except np.linalg.LinAlgError:
+                        if self.verbose:
+                            print("LinAlg Error")
+                    else:
                         c = z / z.sum()
-
                         coef_acc = np.sum(
-                            last_K_coef[:-1] * c[:, None, None], axis=0
-                        )
+                            last_K_coef[:-1] * c[:, None, None], axis=0)
                         active_set_acc = norm(coef_acc, axis=1) != 0
-
                         p_obj_acc = primal_mtl(X, Y, coef_acc[active_set_acc],
                                                active_set_acc, _alpha,
                                                self.n_orient)
-
                         if p_obj_acc < p_obj:
                             coef = coef_acc
                             active_set = active_set_acc
                             R = Y - X[:, active_set] @ coef[active_set]
-
-                    except np.linalg.LinAlgError:
-                        if self.verbose:
-                            print("LinAlg Error")
 
             if gap < self.tol:
                 if self.verbose:

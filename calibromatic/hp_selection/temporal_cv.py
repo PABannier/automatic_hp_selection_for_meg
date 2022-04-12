@@ -1,4 +1,4 @@
-from calibromatic.ll_warm_start import LLForReweightedMTL
+from calibromatic.hp_selection.ll_warm_start import LLForReweightedMTL
 import numpy as np
 from calibromatic.utils import compute_alpha_max, solve_irmxne_problem
 

@@ -7,7 +7,7 @@ from sklearn.utils.validation import check_X_y, check_is_fitted, check_array
 from sklearn.base import BaseEstimator, RegressorMixin
 from sklearn.metrics import f1_score, jaccard_score
 
-from calibromatic.solver_free_orient import MultiTaskLassoUnscaled
+from calibromatic.sparse_solver import MultiTaskLassoUnscaled
 from calibromatic.utils import (compute_alpha_max, solve_irmxne_problem,
                                 build_full_coefficient_matrix)
 
