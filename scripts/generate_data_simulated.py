@@ -16,11 +16,11 @@ from scipy.stats import wasserstein_distance
 
 import mne
 
-from hp_selection.sure import solve_using_sure
-from hp_selection.spatial_cv import solve_using_spatial_cv
-from hp_selection.lambda_map import solve_using_lambda_map
-from hp_selection.temporal_cv import solve_using_temporal_cv
-from hp_selection.utils import apply_solver, load_data
+from calibromatic.sure import solve_using_sure
+from calibromatic.spatial_cv import solve_using_spatial_cv
+from calibromatic.lambda_map import solve_using_lambda_map
+from calibromatic.temporal_cv import solve_using_temporal_cv
+from calibromatic.utils import apply_solver, load_data
 
 N_JOBS = 4
 INNER_MAX_NUM_THREADS = 1

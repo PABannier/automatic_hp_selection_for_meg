@@ -78,7 +78,7 @@ if __name__ == "__main__":
 
     # Plot the STC, get the brain image, crop it:
     brain = stc.plot(
-        views=["med"],
+        views=["frontal"],
         hemi="split" if len(HEMISPHERES) > 1 else HEMISPHERES[0],
         size=(500, 250),
         subjects_dir=subjects_dir,

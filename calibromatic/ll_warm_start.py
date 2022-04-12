@@ -6,7 +6,7 @@ from sklearn.utils import check_X_y
 
 from celer import MultiTaskLasso
 
-from hp_selection.solver_free_orient import MultiTaskLassoUnscaled
+from calibromatic.solver_free_orient import MultiTaskLassoUnscaled
 
 
 class LLForReweightedMTL:

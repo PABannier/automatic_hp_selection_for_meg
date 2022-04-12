@@ -5,7 +5,7 @@ from sklearn.base import BaseEstimator, RegressorMixin
 from sklearn.utils import check_X_y, check_array
 from sklearn.utils.validation import check_is_fitted
 
-from hp_selection.utils import (
+from calibromatic.utils import (
     get_duality_gap_mtl,
     primal_mtl,
     groups_norm2,

@@ -1,8 +1,7 @@
 from setuptools import setup, find_packages
 
-
 setup(
-    name="oracle_calibration",
+    name="calibromatic",
     install_requires=[
         "numpy>=1.12",
         "joblib",

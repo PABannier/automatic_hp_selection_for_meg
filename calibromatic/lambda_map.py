@@ -1,6 +1,6 @@
 import numpy as np
-from hp_selection.solver_free_orient import MultiTaskLassoUnscaled
-from hp_selection.utils import norm_l2_inf, groups_norm2
+from calibromatic.solver_free_orient import MultiTaskLassoUnscaled
+from calibromatic.utils import norm_l2_inf, groups_norm2
 
 
 def solve_using_lambda_map(G, M, n_orient, b=5, hp_iter=10, n_mxne_iter=5,

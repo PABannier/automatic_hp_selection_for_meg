@@ -2,7 +2,7 @@ import argparse, os, joblib
 import mne
 from mne.viz import plot_sparse_source_estimates
 from mne.datasets import somato, sample
-from hp_selection.utils import load_somato_data, load_data
+from calibromatic.utils import load_somato_data, load_data
 
 
 parser = argparse.ArgumentParser()

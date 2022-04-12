@@ -1,11 +1,11 @@
 import os, joblib
 
-from hp_selection.sure import solve_using_sure
-from hp_selection.spatial_cv import solve_using_spatial_cv
-from hp_selection.lambda_map import solve_using_lambda_map
-from hp_selection.utils import apply_solver
+from calibromatic.sure import solve_using_sure
+from calibromatic.spatial_cv import solve_using_spatial_cv
+from calibromatic.lambda_map import solve_using_lambda_map
+from calibromatic.utils import apply_solver
 
-from hp_selection.utils import load_data, load_somato_data
+from calibromatic.utils import load_data, load_somato_data
 
 CONDITIONS = ["auditory/left", "auditory/right", "visual/left",
               "visual/right", "somato"]
