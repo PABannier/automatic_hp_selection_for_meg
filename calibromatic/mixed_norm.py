@@ -54,8 +54,11 @@ class MixedNorm(BaseEstimator, RegressorMixin):
 
     def __init__(self, alpha, n_orient=3, max_iter=100, tol=1e-5, p0=100,
                  warm_start=True, verbose=False):
-        super(MixedNorm, self).__init__(
-            alpha=alpha, tol=tol, max_iter=max_iter, warm_start=warm_start)
+        super(MixedNorm, self).__init__()
+        self.alpha = alpha
+        self.tol = tol
+        self.max_iter = max_iter
+        self.warm_start = warm_start
         self.n_orient = n_orient
         self.p0 = p0
         self.verbose = verbose
@@ -64,6 +67,9 @@ class MixedNorm(BaseEstimator, RegressorMixin):
         self.primal_history_ = []
         self.coef_ = None
         self.active_set_ = None
+
+        # Number of past iterates used to construct extrapolated point 
+        self.K = 5
 
     def fit(self, X, Y, alpha=None):
         """Compute Lasso fit.
@@ -97,7 +103,7 @@ class MixedNorm(BaseEstimator, RegressorMixin):
             active_set = self.active_set_
 
         idx_large_corr = np.argsort(groups_norm2(np.dot(X.T, Y), self.n_orient))
-        new_active_idx = idx_large_corr[-self.active_set_size:]
+        new_active_idx = idx_large_corr[-self.p0:]
 
         if self.n_orient > 1:
             new_active_idx = (
@@ -149,7 +155,7 @@ class MixedNorm(BaseEstimator, RegressorMixin):
             if k < (self.max_iter - 1):
                 R = Y - X[:, active_set] @ coef
                 idx_large_corr = np.argsort(groups_norm2(np.dot(X.T, R), self.n_orient))
-                new_active_idx = idx_large_corr[-self.active_set_size:]
+                new_active_idx = idx_large_corr[-self.p0:]
 
                 if self.n_orient > 1:
                     new_active_idx = (
@@ -218,9 +224,8 @@ class MixedNorm(BaseEstimator, RegressorMixin):
 
         X = np.asfortranarray(X)
 
-        if self.accelerated:
-            last_K_coef = np.empty((self.K + 1, n_features, n_times))
-            U = np.zeros((self.K, n_features * n_times))
+        last_K_coef = np.empty((self.K + 1, n_features, n_times))
+        U = np.zeros((self.K, n_features * n_times))
 
         highest_d_obj = -np.inf
         active_set = np.zeros(n_features, dtype=bool)
@@ -269,38 +274,37 @@ class MixedNorm(BaseEstimator, RegressorMixin):
             if self.verbose:
                 print(f"[{iter_idx+1}/{self.max_iter}] p_obj {p_obj:.5f} :: "
                       + f"d_obj {d_obj:.5f} :: d_gap {gap:.5f}")
+                    
+            last_K_coef[iter_idx % (self.K + 1)] = coef
 
-            if self.accelerated:
-                last_K_coef[iter_idx % (self.K + 1)] = coef
+            if iter_idx % (self.K + 1) == self.K:
+                for k in range(self.K):
+                    U[k] = last_K_coef[k + 1].ravel() - last_K_coef[k].ravel()
 
-                if iter_idx % (self.K + 1) == self.K:
-                    for k in range(self.K):
-                        U[k] = last_K_coef[k + 1].ravel() - last_K_coef[k].ravel()
+                C = U @ U.T
 
-                    C = U @ U.T
-
-                    try:
-                        z = np.linalg.solve(C, np.ones(self.K))
-                        # When C is ill-conditioned, z can take very large finite
-                        # positive and negative values (1e35 and -1e35), which leads
-                        # to z.sum() being null.
-                        if z.sum() == 0:
-                            raise np.linalg.LinAlgError
-                    except np.linalg.LinAlgError:
-                        if self.verbose:
-                            print("LinAlg Error")
-                    else:
-                        c = z / z.sum()
-                        coef_acc = np.sum(
-                            last_K_coef[:-1] * c[:, None, None], axis=0)
-                        active_set_acc = norm(coef_acc, axis=1) != 0
-                        p_obj_acc = primal_mtl(X, Y, coef_acc[active_set_acc],
-                                               active_set_acc, _alpha,
-                                               self.n_orient)
-                        if p_obj_acc < p_obj:
-                            coef = coef_acc
-                            active_set = active_set_acc
-                            R = Y - X[:, active_set] @ coef[active_set]
+                try:
+                    z = np.linalg.solve(C, np.ones(self.K))
+                    # When C is ill-conditioned, z can take very large finite
+                    # positive and negative values (1e35 and -1e35), which leads
+                    # to z.sum() being null.
+                    if z.sum() == 0:
+                        raise np.linalg.LinAlgError
+                except np.linalg.LinAlgError:
+                    if self.verbose:
+                        print("LinAlg Error")
+                else:
+                    c = z / z.sum()
+                    coef_acc = np.sum(
+                        last_K_coef[:-1] * c[:, None, None], axis=0)
+                    active_set_acc = norm(coef_acc, axis=1) != 0
+                    p_obj_acc = primal_mtl(X, Y, coef_acc[active_set_acc],
+                                            active_set_acc, _alpha,
+                                            self.n_orient)
+                    if p_obj_acc < p_obj:
+                        coef = coef_acc
+                        active_set = active_set_acc
+                        R = Y - X[:, active_set] @ coef[active_set]
 
             if gap < self.tol:
                 if self.verbose:
@@ -317,5 +321,5 @@ class NormalizedMixedNorm(MixedNorm):
 
     def fit(self, X, Y):
         alpha_scaled = self.alpha * len(X)
-        self._fit(X, Y, alpha_scaled)
+        super().fit(X, Y, alpha_scaled)
         return self
