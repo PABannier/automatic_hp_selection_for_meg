@@ -37,5 +37,6 @@ def test_mixed_norm():
     alpha = alpha_max * 0.1
     clf = NormalizedMixedNorm(alpha, n_orient=1, tol=tol)
     clf_cel = MultiTaskLasso(alpha, fit_intercept=False, tol=tol)
-    clf.fit(X, Y); clf_cel.fit(X, Y)
+    clf.fit(X, Y)
+    clf_cel.fit(X, Y)
     np.testing.assert_allclose(clf.coef_, clf_cel.coef_.T, rtol=1e-5)

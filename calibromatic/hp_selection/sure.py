@@ -136,29 +136,29 @@ class MCFD_SURE:
 
     def _compute_sure_val(self, coef1, coef2, X, Y):
         """Evaluate the DOF term and compute the MCFD SURE value.
-        
+
         Parameters
         ----------
         coef1 : array, shape (n_features, n_tasks)
             The coefficient matrix.
-        
+
         coef2 : array, shape (n_features, n_tasks)
             The noise-disturbed coefficient matrix.
-        
+
         X : array, shape (n_samples, n_features)
             The design matrix.
-        
+
         Y : array, shape (n_samples, n_tasks)
             The measurement matrix.
-        
+
         Returns
         -------
         sure : float
             The SURE approximation using Monte-Carlo Finite Difference.
-        
+
         dof : float
             The degrees of freedom term.
-        
+
         df_term : float
             The data fitting term.
         """
@@ -260,12 +260,12 @@ class MCFD_SURE:
 
     def _init_eps_and_delta(self, n_samples, n_tasks):
         """Initializes epsilon and delta for DOF term computation.
-        
+
         Parameters
         ----------
         n_samples : int
             The number of samples.
-        
+
         n_tasks : int
             The number of tasks.
         """

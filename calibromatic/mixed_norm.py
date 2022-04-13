@@ -4,8 +4,8 @@ from numpy.linalg import norm
 from sklearn.base import BaseEstimator, RegressorMixin
 from sklearn.utils import check_X_y
 
-from calibromatic.utils import (get_duality_gap_mtl, primal_mtl, groups_norm2,
-    sum_squared, get_dgemm)
+from calibromatic.utils import (
+    get_duality_gap_mtl, primal_mtl, groups_norm2, sum_squared, get_dgemm)
 
 
 class MixedNorm(BaseEstimator, RegressorMixin):
@@ -68,7 +68,7 @@ class MixedNorm(BaseEstimator, RegressorMixin):
         self.coef_ = None
         self.active_set_ = None
 
-        # Number of past iterates used to construct extrapolated point 
+        # Number of past iterates used to construct extrapolated point
         self.K = 5
 
     def fit(self, X, Y, alpha=None):
@@ -274,7 +274,7 @@ class MixedNorm(BaseEstimator, RegressorMixin):
             if self.verbose:
                 print(f"[{iter_idx+1}/{self.max_iter}] p_obj {p_obj:.5f} :: "
                       + f"d_obj {d_obj:.5f} :: d_gap {gap:.5f}")
-                    
+
             last_K_coef[iter_idx % (self.K + 1)] = coef
 
             if iter_idx % (self.K + 1) == self.K:
@@ -299,8 +299,7 @@ class MixedNorm(BaseEstimator, RegressorMixin):
                         last_K_coef[:-1] * c[:, None, None], axis=0)
                     active_set_acc = norm(coef_acc, axis=1) != 0
                     p_obj_acc = primal_mtl(X, Y, coef_acc[active_set_acc],
-                                            active_set_acc, _alpha,
-                                            self.n_orient)
+                                           active_set_acc, _alpha, self.n_orient)
                     if p_obj_acc < p_obj:
                         coef = coef_acc
                         active_set = active_set_acc

@@ -66,9 +66,8 @@ def simulate_data(n_samples=100, n_features=1000, n_tasks=150, nnz=10, snr=4, co
         raise ValueError("The correlation coefficient must be in [0, 1)")
 
     if nnz > n_features:
-        raise ValueError(
-            "Number of non-zero coefficients can't be greater than the number of features"
-        )
+        raise ValueError("Number of non-zero coefficients can't be greater than " +
+                         "the number of features")
 
     sigma = np.sqrt(1 - corr ** 2)
     U = rng.randn(n_samples)
@@ -311,7 +310,7 @@ def get_duality_gap_mtl(X, Y, coef, active_set, alpha, n_orient=1):
 
 #         activations = {
 #             'auditory/left':
-#                 [('G_temp_sup-G_T_transv-lh', amplitude[0]),          # label, activation (nAm)
+#                 [('G_temp_sup-G_T_transv-lh', amplitude[0]),# label, activation (nAm)
 #                 ('G_temp_sup-G_T_transv-rh', amplitude[1])
 #                 # ('S_calcarine-lh', amplitude[2])
 #                 ],

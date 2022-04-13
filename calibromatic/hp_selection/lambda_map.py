@@ -67,8 +67,8 @@ def fit_lambda_map(G, M, n_orient, b=5, n_iter=10):
         alphas.append(alpha)
 
         if abs(alphas[-2] - alphas[-1]).max() < 1e-2:
-            print('Hyperparameter estimated: Convergence reached after'
-                    ' %d iterations!' % i_hp)
+            print('Hyperparameter estimated: Convergence reached after %d iterations!'
+                  % i_hp)
             break
 
     active_set = np.linalg.norm(estimator.coef_, axis=-1) != 0

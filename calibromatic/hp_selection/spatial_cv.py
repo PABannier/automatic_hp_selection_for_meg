@@ -10,7 +10,6 @@ from calibromatic.mixed_norm import MixedNorm
 from calibromatic.utils import compute_alpha_max
 
 
-
 class SpatialCV(BaseEstimator, RegressorMixin):
     r"""Calibrates mixed norm with spatial cross-validation.
 
@@ -215,7 +214,7 @@ class SpatialCV(BaseEstimator, RegressorMixin):
         return coef, w
 
 
-def fit_spatial_cv(G, M, n_orient, n_mxne_iter=5, grid_length=15, n_folds=5, 
+def fit_spatial_cv(G, M, n_orient, n_mxne_iter=5, grid_length=15, n_folds=5,
                    random_state=0):
     """Calibrate Lasso model with a cross-validation splitted along the sensors.
 
@@ -232,13 +231,13 @@ def fit_spatial_cv(G, M, n_orient, n_mxne_iter=5, grid_length=15, n_folds=5,
 
     n_mxne_iter : int
         Number of reweighting iterations of the mixed norm estimate.
-    
+
     grid_length : int
         The grid length.
-    
-    n_folds : int  
+
+    n_folds : int
         The number of folds.
-    
+
     random_state : int
         The random state.
 
