@@ -4,7 +4,7 @@ from numpy.linalg import norm
 from sklearn.utils import check_X_y
 from celer import MultiTaskLasso
 
-from calibromatic.sparse_solver import MixedNorm
+from calibromatic.mixed_norm import MixedNorm
 from calibromatic.utils import compute_alpha_max
 
 
@@ -263,7 +263,7 @@ class TemporalCV:
         return 1 / (2 * m_norm + np.finfo(float).eps)
 
 
-def temporal_cv(G, M, n_orient, n_mxne_iter=5, grid_length=15, random_state=None):
+def fit_temporal_cv(G, M, n_orient, n_mxne_iter=5, grid_length=15, random_state=None):
     """Calibrate Lasso model with a cross-validation with temporal splits.
 
     Parameters
@@ -297,8 +297,8 @@ def temporal_cv(G, M, n_orient, n_mxne_iter=5, grid_length=15, random_state=None
     alpha_max = compute_alpha_max(G, M, n_orient)
     grid = np.linspace(alpha_max, alpha_max * 0.1, grid_length)
     # Sigma = 1 because data are already pre-whitened
-    criterion = LLForReweightedMTL(1, grid, n_orient=n_orient, n_iterations=n_mxne_iter,
-                                   random_state=random_state)
+    criterion = TemporalCV(1, grid, n_orient=n_orient, n_iterations=n_mxne_iter,
+                           random_state=random_state)
     best_coef_ = criterion.best_coef_
     as_ = np.linalg.norm(best_coef_, axis=1) != 0
     X_ = best_coef_[as_]

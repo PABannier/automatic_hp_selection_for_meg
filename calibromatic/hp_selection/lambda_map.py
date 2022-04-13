@@ -1,10 +1,10 @@
 import numpy as np
 
-from calibromatic.sparse_solver import MixedNorm
+from calibromatic.mixed_norm import MixedNorm
 from calibromatic.utils import norm_l2_inf, groups_norm2
 
 
-def lambda_map(G, M, n_orient, b=5, n_iter=10):
+def fit_lambda_map(G, M, n_orient, b=5, n_iter=10):
     """Calibrate Lasso model with a Bayesian maximum-a-posteriori criterion.
 
     Parameters

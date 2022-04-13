@@ -6,7 +6,7 @@ from sklearn.utils import check_random_state, check_X_y
 
 from celer import MultiTaskLasso
 
-from ..sparse_solver import NormalizedMixedNorm
+from calibromatic.mixed_norm import NormalizedMixedNorm
 
 
 class MCFD_SURE:
