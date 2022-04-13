@@ -46,8 +46,12 @@ class MCFD_SURE:
 
     References
     ----------
-
+    .. [1] C.-A. Deledalle, S. Vaiter, J. M. Fadili, G. Peyré, 2014
+    "Stein Unbiased GrAdient estimator of the Risk (SUGAR) for multiple parameter
+    selection",
+    https://arxiv.org/abs/1405.1164
     """
+
     def __init__(self, sigma, alpha_grid, n_reweighting=5, penalty=None, n_orient=1,
                  random_state=None):
         self.sigma = sigma
@@ -261,7 +265,7 @@ class MCFD_SURE:
         return coefs_1_, coefs_2_
 
     def _init_eps_and_delta(self, n_samples, n_tasks):
-        """Initializes epsilon and delta for DOF term computation.
+        """Initialize epsilon and delta for DOF term computation.
 
         Parameters
         ----------
@@ -276,11 +280,7 @@ class MCFD_SURE:
         self.delta = rng.randn(n_samples, n_tasks)
 
     def _penalty(self, coef):
-        """Defines a non-convex penalty for reweighting
-        the design matrix from the regression coefficients.
-
-        Takes into account the number of orientations
-        of the problem.
+        """Define a non-convex penalty to reweight the design matrix from coefficients.
 
         Parameters
         ----------

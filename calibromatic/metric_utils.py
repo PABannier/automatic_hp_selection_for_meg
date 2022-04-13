@@ -7,16 +7,15 @@ from sklearn.utils.multiclass import type_of_target
 from sklearn.metrics._ranking import _binary_clf_curve
 
 
-def delta_precision_recall_curve(y_true, probas_pred, y_true_extended,
-                                 pos_label=None, sample_weight=None):
-    _, tps, _ = _binary_clf_curve(y_true, probas_pred,
-                                  pos_label=pos_label,
+def delta_precision_recall_curve(y_true, probas_pred, y_true_extended, pos_label=None,
+                                 sample_weight=None):
+    """Compute delta-precision-recall curve."""
+    _, tps, _ = _binary_clf_curve(y_true, probas_pred, pos_label=pos_label,
                                   sample_weight=sample_weight)
     recall = tps / tps[-1]
-    delta_fps, delta_tps, thresholds = \
-        _binary_clf_curve(y_true_extended, probas_pred,
-                          pos_label=pos_label,
-                          sample_weight=sample_weight)
+    delta_fps, delta_tps, thresholds = _binary_clf_curve(y_true_extended, probas_pred,
+                                                         pos_label=pos_label,
+                                                         sample_weight=sample_weight)
     delta_precision = delta_tps / (delta_tps + delta_fps)
     delta_precision[np.isnan(delta_precision)] = 0
     # stop when full recall attained
@@ -81,6 +80,7 @@ def _signed_class_clf_curve(y_true, y_score):
 
 
 def signed_class_precision_recall(y_true, signed_probas_pred):
+    """Compute signed class precision recall at different threshold levels."""
     fps, tps, thresholds = _signed_class_clf_curve(y_true, signed_probas_pred)
     precision = tps / (tps + fps)
     precision[np.isnan(precision)] = 0

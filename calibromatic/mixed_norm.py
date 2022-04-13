@@ -315,6 +315,17 @@ class MixedNorm(BaseEstimator, RegressorMixin):
 
 
 class NormalizedMixedNorm(MixedNorm):
+    r"""Lasso solver for neuroscience inverse problem.
+
+    The optimization objective for Lasso is::
+
+    (1 / (2 * n_samples)) * ||M - GX||^2_F + alpha * ||X||_2,1
+
+    See Also
+    --------
+    MixedNorm : Unscaled Lasso solver for neuroscience inverse problem.
+    """
+
     def __init__(self, alpha, **kwargs):
         super(NormalizedMixedNorm, self).__init__(alpha, **kwargs)
 

@@ -15,8 +15,7 @@ from sklearn.utils import check_random_state
 
 def simulate_data(n_samples=100, n_features=1000, n_tasks=150, nnz=10, snr=4, corr=0.3,
                   random_state=None, autocorrelated=False):
-    """Generates a simulated dataset and a row-sparse weight
-       matrix for multi-task lasso.
+    """Generate a simulated dataset and a row-sparse weight matrix.
 
     Parameters
     ----------
@@ -59,7 +58,6 @@ def simulate_data(n_samples=100, n_features=1000, n_tasks=150, nnz=10, snr=4, co
     W : np.ndarray of shape (n_features, n_tasks)
         Sparse-row weight matrix.
     """
-
     rng = check_random_state(random_state)
 
     if not 0 <= corr < 1:
@@ -109,12 +107,13 @@ def groups_norm2(A, n_orient=1):
 
 
 def sum_squared(X):
+    """Compute the squared Frobenius norm of X."""
     X_flat = X.ravel(order="F" if np.isfortran(X) else "C")
     return np.dot(X_flat, X_flat)
 
 
 def norm_l2_05(X, n_orient, copy=True):
-    """Compute l_2,p norm"""
+    """Compute l_2,p norm."""
     if X.size == 0:
         return 0.0
     if copy:
@@ -123,7 +122,7 @@ def norm_l2_05(X, n_orient, copy=True):
 
 
 def norm_l2_inf(X, n_orient, copy=True):
-    """Compute l_2,inf norm"""
+    """Compute l_2,inf norm."""
     if X.size == 0:
         return 0.0
     if copy:
@@ -132,18 +131,19 @@ def norm_l2_inf(X, n_orient, copy=True):
 
 
 def compute_alpha_max(G, M, n_orient):
-    """Compute alpha max"""
+    """Compute alpha max."""
     return norm_l2_inf(np.dot(G.T, M), n_orient, copy=True)
 
 
 @functools.lru_cache(None)
 def get_dgemm():
+    """Get the DGEMM BLAS routine."""
     from scipy import linalg
-
     return linalg.get_blas_funcs("gemm", (np.empty(0, np.float64),))
 
 
 def norm_l2_1(X, n_orient, copy=True):
+    """Compute the L2,1 norm."""
     if X.size == 0:
         return 0.0
     if copy:
@@ -152,9 +152,7 @@ def norm_l2_1(X, n_orient, copy=True):
 
 
 def primal_mtl(X, Y, coef, active_set, alpha, n_orient=1):
-    """Primal objective function for multi-task
-    LASSO
-    """
+    """Primal objective function for multi-task Lasso."""
     Y_hat = np.dot(X[:, active_set], coef)
     R = Y - Y_hat
     penalty = norm_l2_1(coef, n_orient, copy=True)
@@ -164,6 +162,7 @@ def primal_mtl(X, Y, coef, active_set, alpha, n_orient=1):
 
 
 def get_duality_gap_mtl(X, Y, coef, active_set, alpha, n_orient=1):
+    """Duality gap for multi-task Lasso."""
     Y_hat = np.dot(X[:, active_set], coef)
     R = Y - Y_hat
     penalty = norm_l2_1(coef, n_orient, copy=True)
