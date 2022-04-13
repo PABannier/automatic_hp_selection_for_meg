@@ -18,13 +18,18 @@ X, Y = simulate_data(n_samples=n_samples, n_features=n_features, n_tasks=n_tasks
 
 
 @pytest.mark.parametrize("n_orient", n_orients)
-def test_loss_decreasing_every_iteration(n_orient):
+def test_gap_decreasing(n_orient):
     alpha_max = norm_l2_inf(X.T @ Y, n_orient, copy=False)
     alpha = alpha_max * 0.1
-    estimator = NormalizedMixedNorm(alpha, n_orient=n_orient)
-    estimator.fit(X, Y)
-    diffs = np.diff(estimator.gap_history_)
-    assert np.all(diffs < 1e-3)
+    clf = NormalizedMixedNorm(alpha, n_orient=n_orient)
+    clf.fit(X, Y)
+    XR = X.T @ (Y - X @ clf.coef_)
+
+    assert np.all(np.abs(XR) <= alpha * len(X) + 1e-12), "KKT check"
+    assert clf.gap_history_[0] >= clf.gap_history_[-1]
+    assert clf.gap_history_[-1] <= tol
+    assert np.all(np.diff(clf.gap_history_) <= 0)
+    assert np.all(np.diff(clf.primal_history_) <= 0)
 
 
 def test_mixed_norm():
