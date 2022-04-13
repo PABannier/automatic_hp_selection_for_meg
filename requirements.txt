@@ -1,0 +1,4 @@
+numpy>=1.20.0
+scikit-learn>=1.0.0
+celer>=0.6.1
+tqdm>=4.64.0
