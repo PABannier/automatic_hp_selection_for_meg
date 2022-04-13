@@ -28,8 +28,8 @@ class SpatialCV(BaseEstimator, RegressorMixin):
     n_reweighting : int, optional
         Number of penalty reweighing.
 
-    penalty : callable, default=None
-        See docs of ReweightedMultiTaskLasso for more details.
+    penalty : callable, optional
+        Non-convex penalty used to reweight the design matrix.
 
     n_orient: int, optional
         Number of orientation for a dipole. 1 for fixed orientation, > 1 for free.
@@ -203,10 +203,14 @@ class SpatialCV(BaseEstimator, RegressorMixin):
         w : array, shape (n_features)
             The updated weight vector.
         """
-        X_w = X / w[np.newaxis, :]
+        X_w = X / np.repeat(w[np.newaxis, :], self.n_orient)
         regressor.fit(X_w, Y)
-        w = np.expand_dims(w, axis=-1)
-        coef = regressor.coef_ / w
+
+        if self.n_orient == 1:
+            coef = (regressor.coef_ / w).T
+        else:
+            coef = (regressor.coef_.T / np.repeat(w[np.newaxis, :],
+                    self.n_orient)).T
         w = self.penalty(coef)
         return coef, w
 

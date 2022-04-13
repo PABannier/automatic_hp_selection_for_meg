@@ -8,11 +8,59 @@ from calibromatic.utils import compute_alpha_max
 
 
 class LLForReweightedMTL:
-    def __init__(self, sigma, alpha_grid, n_iterations=5, penalty=None,
+    r"""The Type-II Log-Likelihood criterion evaluated with temporal cross-validation.
+
+    Parameters
+    ----------
+    sigma : float
+        The noise estimate.
+
+    alpha_grid : array, shape (n_alphas,)
+        Grid of regularization parameter to test.
+
+    n_reweighting : int, optional
+        Number of penalty reweighting.
+
+    penalty : callable, optional
+        Non-convex penalty used to reweight the design matrix.
+
+    n_orient: int, optional
+        Number of orientation for a dipole. 1 for fixed orientation, > 1 for free.
+
+    random_state : int or None, optional
+        Seed for reproducible experiments.
+
+    Attributes
+    ----------
+    ll_path_ : array, shape (n_alphas,)
+        The Log-likehood criterion value along the path.
+
+    trace_path_ : array, shape (n_alphas,)
+        The trace term contribution to the LL criterion along the path.
+
+    log_det_path_ : array, shape (n_alphas,)
+        The Log determinant term contribution to the LL criterion along the path.
+        It can be interpreted as a regularization constraint on the objective.
+
+    best_coef_ : array, shape (n_sources, n_times)
+        The coefficient matrix minimizing the criterion.
+
+    References
+    ----------
+    .. [1] A. Hashemi et al.
+    "Unification of sparse Bayesian learning algorithms for electromagnetic brain
+    imaging with the Majorization Minimization framework",
+    https://www.biorxiv.org/content/10.1101/2020.08.10.243774v4.full.pdf
+    """
+
+    def __init__(self, sigma, alpha_grid, n_reweighting=5, penalty=None,
                  n_orient=1, random_state=None):
+        if not isinstance(alpha_grid, (list, np.ndarray)):
+            raise TypeError("The parameter grid must be a list or a Numpy array.")
+
         self.sigma = sigma
         self.alpha_grid = alpha_grid
-        self.n_iterations = n_iterations
+        self.n_reweighting = n_reweighting
         self.n_orient = n_orient
         self.random_state = random_state
 
@@ -27,12 +75,19 @@ class LLForReweightedMTL:
         if self.n_orient <= 0:
             raise ValueError("Number of orientations can't be negative.")
 
-        if penalty:
-            self.penalty = penalty
-        else:
-            self.penalty = self._penalty
+        self.penalty = penalty if penalty else self._penalty
 
-    def get_val(self, X, Y):
+    def fit(self, X, Y):
+        """Fit temporal cross-validation to select best `alpha`.
+
+        Parameters
+        ----------
+        X : array, shape (n_samples, n_features)
+            Design matrix.
+
+        Y : array, shape (n_samples, n_tasks)
+            Target matrix.
+        """
         X, Y = check_X_y(X, Y, multi_output=True)
         coefs_grid = self._fit_reweighted_with_grid(X, Y)
 
@@ -50,6 +105,30 @@ class LLForReweightedMTL:
         return best_ll_, best_alpha_
 
     def _reweight_op(self, regressor, X, Y, w):
+        """Reweight design matrix by the weight (computing trick).
+
+        Parameters
+        ----------
+        regressor : instance of MixedNorm
+            The mixed norm estimator.
+
+        X : array, shape (n_samples, n_features)
+            The design matrix.
+
+        Y : array, shape (n_samples, n_tasks)
+            The measurement matrix.
+
+        w : array, shape (n_features)
+            A weight vector applied to the columns of X.
+
+        Returns
+        -------
+        coef : array, shape (n_features, n_tasks)
+            The coefficient matrix.
+
+        w : array, shape (n_features)
+            The updated weight vector.
+        """
         X_w = X / np.repeat(w[np.newaxis, :], self.n_orient)
         regressor.fit(X_w, Y)
 
@@ -62,35 +141,53 @@ class LLForReweightedMTL:
         return coef, w
 
     def _compute_ll_val(self, X, W, Y):
-        """
-        Computes the Type-II log-likelihood criterion. See reference:
-        https://www.biorxiv.org/content/10.1101/2020.08.10.243774v4.full.pdf
+        """Compute the Type-II Log-Likelihood criterion.
+
+        Parameters
+        ----------
+        X : array, shape (n_samples, n_features)
+            The design matrix.
+
+        W : array, shape (n_features, n_tasks)
+            The coefficient matrix.
+
+        Y : array, shape (n_samples, n_tasks)
+            The measurement matrix.
         """
         cov_Y_val = np.cov(Y)  # (n_samples, n_samples)
         Gamma = self._compute_groupwise_var(W)
-        sigma_Y_train = ((self.sigma ** 2) * np.eye(X.shape[0])
-                         + (X * Gamma) @ X.T)
-        # must be invertible as a covariance matrix
+        sigma_Y_train = (self.sigma ** 2) * np.eye(X.shape[0]) + (X * Gamma) @ X.T
         sigma_Y_train_inv = np.linalg.inv(sigma_Y_train)
         trace = np.trace(cov_Y_val @ sigma_Y_train_inv)
         log_det = np.linalg.slogdet(sigma_Y_train)[1]
         return trace, log_det, trace + log_det
 
     def _fit_reweighted_with_grid(self, X, Y):
-        _, n_features = X.shape
-        _, n_tasks = Y.shape
+        """Fit an iteratively reweighted Mixed Norm to the data.
+
+        Parameters
+        ----------
+        X : array, shape (n_samples, n_features)
+            The design matrix.
+
+        Y : array, shape (n_samples, n_tasks)
+            The measurement matrix.
+
+        Returns
+        -------
+        coefs : array, shape (n_features, n_tasks)
+            The coefficient matrix.
+        """
+        n_features, n_tasks = X.shape[1], Y.shape[1]
         n_alphas = len(self.alpha_grid)
 
         coef_0 = np.empty((n_alphas, n_features, n_tasks))
 
         # Warm start first iteration
         if self.n_orient == 1:
-            regressor = MultiTaskLasso(np.nan, fit_intercept=False,
-                                       warm_start=True)
+            regressor = MultiTaskLasso(np.nan, fit_intercept=False, warm_start=True)
         else:
-            regressor = MixedNorm(np.nan, warm_start=True,
-                                               n_orient=self.n_orient,
-                                               accelerated=True)
+            regressor = MixedNorm(np.nan, warm_start=True, n_orient=self.n_orient)
 
         # Copy grid of first iteration (leverages convexity)
         print("First iteration")
@@ -124,10 +221,17 @@ class LLForReweightedMTL:
         return coefs_
 
     def _compute_groupwise_var(self, X):
-        """
-        Computes the group-wise variance along the temporal axis (axis=-1)
-        of the coefficient matrix.
-        The groups are typically blocks of sources (free orientation).
+        """Group-wise variance along the temporal axis of the coefficient matrix.
+
+        Parameters
+        ----------
+        X : array, shape (n_features, n_tasks)
+            The coefficient matrix
+
+        Returns
+        -------
+        variances : array, shape (n_positions)
+            The variances for each block of coordinates.
         """
         n_positions = X.shape[0] // self.n_orient
         variances = np.zeros(X.shape[0], dtype=np.float32)
@@ -140,20 +244,16 @@ class LLForReweightedMTL:
         return variances
 
     def _penalty(self, coef):
-        """Defines a non-convex penalty for reweighting
-        the design matrix from the regression coefficients.
-
-        Takes into account the number of orientations
-        of the problem.
+        """Non-convex penalty for reweighting the design matrix from the coefficients.
 
         Parameters
         ----------
-        coef : array of shape (n_features, n_times)
+        coef : array, shape (n_features, n_times)
             Coefficient matrix.
 
         Returns
         -------
-        penalty : array of shape (n_positions,)
+        penalty : array, shape (n_positions,)
             Penalty vector.
         """
         n_positions = coef.shape[0] // self.n_orient
@@ -178,10 +278,10 @@ def temporal_cv(G, M, n_orient, n_mxne_iter=5, grid_length=15, random_state=None
 
     n_mxne_iter : int
         Number of reweighting iterations of the mixed norm estimate.
-    
+
     grid_length : int
         The grid length.
-    
+
     random_state : int
         The random state.
 
