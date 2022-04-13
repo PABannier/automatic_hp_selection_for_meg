@@ -300,7 +300,7 @@ class MCFD_SURE:
 
 def fit_sure(G, M, n_orient, sigma=1, grid_length=15):
     """Calibrate Lasso model by minimzing MCFD SURE.
-    
+
     Parameters
     ----------
     G : array, shape (n_sensors, n_sources)
@@ -311,13 +311,13 @@ def fit_sure(G, M, n_orient, sigma=1, grid_length=15):
 
     n_orient : int
         Number of orientations. 1 if fixed orientation, otherwise free.
-    
+
     sigma : float
         The noise level in the data-generating process.
 
     grid_length : int
         The grid length.
-    
+
     Returns
     -------
     X : array, shape (n_sensors, ws_size)
@@ -333,4 +333,3 @@ def fit_sure(G, M, n_orient, sigma=1, grid_length=15):
     X_ = criterion.coef_
     as_ = norm(X_, axis=0) != 0
     return X_, as_
-    
