@@ -1,26 +1,21 @@
-from inspect import Attribute
 from itertools import product
 import time
 
-from numpy.core.function_base import linspace
-from joblib import parallel_backend
-from joblib import Parallel, delayed
+from joblib import parallel_backend, Parallel, delayed
 import joblib
 
 import numpy as np
-import matplotlib.pyplot as plt
-import pandas as pd
-
 from sklearn.metrics import recall_score, precision_score
 from scipy.stats import wasserstein_distance
 
 import mne
 
-from calibromatic.hp_selection.sure import solve_using_sure
-from calibromatic.hp_selection.spatial_cv import solve_using_spatial_cv
-from calibromatic.hp_selection.lambda_map import solve_using_lambda_map
-from calibromatic.hp_selection.temporal_cv import solve_using_temporal_cv
+from calibromatic.hp_selection.sure import fit_sure
+from calibromatic.hp_selection.spatial_cv import fit_spatial_cv
+from calibromatic.hp_selection.lambda_map import fit_lambda_map
+from calibromatic.hp_selection.temporal_cv import fit_temporal_cv
 from calibromatic.utils import apply_solver, load_data
+
 
 N_JOBS = 4
 INNER_MAX_NUM_THREADS = 1
@@ -30,15 +25,13 @@ RESOLUTION = 6
 
 EXTENT = 7
 AMPLITUDE_RANGE = [(i, i) for i in np.linspace(100, 700, num=5)]
-# AMPLITUDE_RANGE = [(i*10, i*10) for i in range(1, 11)]
 
 MAXFILTER = False
 SIMULATED = True
-SOLVERS = ["spatial_cv", "sure", "lambda_map"]
-# SOLVERS = ["sure", "spatial_cv", "temporal_cv", "lambda_map"]
+SOLVERS = ["sure", "spatial_cv", "sure", "lambda_map"]
 
-def delta_f1_score(stc, true_stc, forward, subject, labels, extent,
-                   subjects_dir):
+
+def delta_f1_score(stc, true_stc, forward, subject, labels, extent, subjects_dir):
     vertices = []
     vertices.append(forward["src"][0]["vertno"])
     vertices.append(forward["src"][1]["vertno"])
@@ -95,15 +88,6 @@ def delta_f1_score(stc, true_stc, forward, subject, labels, extent,
     if delta_precision == 0 and recall == 0:
         return 0, delta_precision, recall, emd
     f1 = 2 * (delta_precision * recall) / (delta_precision + recall)
-    # except AttributeError:
-    #     print("=" * 20)
-    #     print("ERROR")
-    #     print("=" * 20)
-    #     f1 = "err"
-    #     delta_precision = "err"
-    #     recall = "err"
-    #     emd = "err"
-
     return f1, delta_precision, recall, emd
 
 
@@ -119,17 +103,15 @@ def solve_condition_for_amplitude(solver, amplitude, subject, subjects_dir):
     delta_f1, delta_precision, recall, emd = np.nan, np.nan, np.nan, np.nan
 
     start_time = time.time()
+
     if solver == "sure":
-        stc = solve_using_sure(evoked, forward, noise_cov, depth=0.9)
+        stc = apply_solver(fit_sure, evoked, forward, noise_cov, depth=0.9)
     elif solver == "lambda_map":
-        stc = apply_solver(solve_using_lambda_map, evoked, forward,
-                            noise_cov, depth=0.9)
+        stc = apply_solver(fit_lambda_map, evoked, forward, noise_cov, depth=0.9)
     elif solver == "spatial_cv":
-        stc = apply_solver(solve_using_spatial_cv, evoked, forward,
-                            noise_cov, depth=0.9)
+        stc = apply_solver(fit_spatial_cv, evoked, forward, noise_cov, depth=0.9)
     elif solver == "temporal_cv":
-        stc = apply_solver(solve_using_temporal_cv, evoked, forward,
-                            noise_cov, depth=0.9)
+        stc = apply_solver(fit_temporal_cv, evoked, forward, noise_cov, depth=0.9)
     else:
         raise ValueError("Unknown solver!")
 

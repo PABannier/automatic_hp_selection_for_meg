@@ -40,9 +40,8 @@ if __name__ == "__main__":
         data_path = somato.data_path()
         subject = "01"
         task = "somato"
-        fwd_fname = os.path.join(data_path, "derivatives",
-                                "sub-{}".format(subject),
-                                "sub-{}_task-{}-fwd.fif".format(subject, task))
+        fwd_fname = os.path.join(data_path, "derivatives", "sub-{}".format(subject),
+                                 "sub-{}_task-{}-fwd.fif".format(subject, task))
         forward = mne.read_forward_solution(fwd_fname)
     else:
         data_path = sample.data_path()

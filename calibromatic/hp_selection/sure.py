@@ -7,6 +7,7 @@ from sklearn.utils import check_random_state, check_X_y
 from celer import MultiTaskLasso
 
 from calibromatic.mixed_norm import NormalizedMixedNorm
+from calibromatic.utils import compute_alpha_max
 
 
 class MCFD_SURE:
@@ -98,6 +99,7 @@ class MCFD_SURE:
 
         best_sure_ = np.min(self.sure_path_)
         best_alpha_ = self.alpha_grid[np.argmin(self.sure_path_)]
+        self.coef_ = coefs_grid_1[np.argmin(self.sure_path_)]
         return best_sure_, best_alpha_
 
     def _reweight_op(self, regressor, X, Y, w):
@@ -294,3 +296,41 @@ class MCFD_SURE:
         coef = coef.reshape(n_positions, -1)
         m_norm = np.sqrt(norm(coef, axis=1))
         return 1 / (2 * m_norm + np.finfo(float).eps)
+
+
+def fit_sure(G, M, n_orient, sigma=1, grid_length=15):
+    """Calibrate Lasso model by minimzing MCFD SURE.
+    
+    Parameters
+    ----------
+    G : array, shape (n_sensors, n_sources)
+        The gain matrix.
+
+    M : array, shape (n_sensors, n_times)
+        The measurement matrix.
+
+    n_orient : int
+        Number of orientations. 1 if fixed orientation, otherwise free.
+    
+    sigma : float
+        The noise level in the data-generating process.
+
+    grid_length : int
+        The grid length.
+    
+    Returns
+    -------
+    X : array, shape (n_sensors, ws_size)
+        The coefficient matrix restricted to the active set.
+
+    active_set : array, shape (n_sources)
+        Boolean array containing the activated sources.
+    """
+    alpha_max = compute_alpha_max(G, M, n_orient)
+    grid = np.linspace(alpha_max, alpha_max * 0.1, grid_length)
+    criterion = MCFD_SURE(sigma, grid, n_orient=n_orient, random_state=0)
+    criterion.fit(G, M)
+    X_ = criterion.coef_
+    as_ = norm(X_, axis=0) != 0
+    return X_, as_
+    
