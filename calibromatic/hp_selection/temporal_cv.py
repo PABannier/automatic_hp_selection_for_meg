@@ -1,13 +1,14 @@
 import numpy as np
 from numpy.linalg import norm
-from sklearn.linear_model import MultiTaskLasso
+
 from sklearn.utils import check_X_y
+from celer import MultiTaskLasso
 
 from calibromatic.sparse_solver import MixedNorm
 from calibromatic.utils import compute_alpha_max
 
 
-class LLForReweightedMTL:
+class TemporalCV:
     r"""The Type-II Log-Likelihood criterion evaluated with temporal cross-validation.
 
     Parameters

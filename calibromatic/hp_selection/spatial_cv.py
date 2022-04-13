@@ -3,11 +3,11 @@ from numpy.linalg import norm
 
 from sklearn.model_selection import KFold
 from sklearn.metrics import mean_squared_error
-from sklearn.utils.validation import check_X_y, check_is_fitted, check_array
+from sklearn.utils.validation import check_X_y
 from sklearn.base import BaseEstimator, RegressorMixin
 
 from calibromatic.sparse_solver import MixedNorm
-from calibromatic.utils import compute_alpha_max, solve_irmxne_problem
+from calibromatic.utils import compute_alpha_max
 
 
 

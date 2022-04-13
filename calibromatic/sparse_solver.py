@@ -54,7 +54,7 @@ class MixedNorm(BaseEstimator, RegressorMixin):
 
     def __init__(self, alpha, n_orient=3, max_iter=100, tol=1e-5, p0=100,
                  warm_start=True, verbose=False):
-        super(MultiTaskLassoUnscaled, self).__init__(
+        super(MixedNorm, self).__init__(
             alpha=alpha, tol=tol, max_iter=max_iter, warm_start=warm_start)
         self.n_orient = n_orient
         self.p0 = p0
@@ -311,11 +311,11 @@ class MixedNorm(BaseEstimator, RegressorMixin):
         return coef, active_set
 
 
-# class MultiTaskLassoOrientation(MultiTaskLassoUnscaled):
-#     def __init__(self, alpha, **kwargs):
-#         super().__init__(alpha, **kwargs)
+class NormalizedMixedNorm(MixedNorm):
+    def __init__(self, alpha, **kwargs):
+        super(NormalizedMixedNorm, self).__init__(alpha, **kwargs)
 
-#     def fit(self, X, Y):
-#         alpha_scaled = self.alpha * len(X)
-#         self._fit(X, Y, alpha_scaled)
-#         return self
+    def fit(self, X, Y):
+        alpha_scaled = self.alpha * len(X)
+        self._fit(X, Y, alpha_scaled)
+        return self
