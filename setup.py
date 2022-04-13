@@ -1,14 +1,10 @@
 from setuptools import setup, find_packages
 
+with open("./requirements.txt", "rt") as fh:
+    install_requires = fh.read().splitlines()
+
 setup(
     name="calibromatic",
-    install_requires=[
-        "numpy>=1.12",
-        "joblib",
-        "celer",
-        "mne",
-        "scikit-learn>=0.23",
-        "matplotlib>=2.0.0",
-    ],
+    install_requires=install_requires,
     packages=find_packages()
 )
